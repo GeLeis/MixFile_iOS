@@ -1,0 +1,415 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 51;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		283A783223A1D4C20062F7A8 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A783123A1D4C20062F7A8 /* AppDelegate.m */; };
+		283A783523A1D4C20062F7A8 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A783423A1D4C20062F7A8 /* ViewController.m */; };
+		283A783723A1D4C60062F7A8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 283A783623A1D4C60062F7A8 /* Assets.xcassets */; };
+		283A783A23A1D4C60062F7A8 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 283A783823A1D4C60062F7A8 /* Main.storyboard */; };
+		283A783D23A1D4C60062F7A8 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A783C23A1D4C60062F7A8 /* main.m */; };
+		283A784623A246FB0062F7A8 /* DocTableCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A784523A246FB0062F7A8 /* DocTableCell.m */; };
+		283A784923A26A510062F7A8 /* NSString+JCRegexHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A784723A26A500062F7A8 /* NSString+JCRegexHelper.m */; };
+		5619F41A0131D8DD02FDBA95 /* Pods_MixFiles.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58303D58DB05109196F0A59F /* Pods_MixFiles.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0357B5D560391D4AAA4A476B /* Pods-MixFiles.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MixFiles.release.xcconfig"; path = "Target Support Files/Pods-MixFiles/Pods-MixFiles.release.xcconfig"; sourceTree = "<group>"; };
+		283A782D23A1D4C20062F7A8 /* MixFiles.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MixFiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		283A783023A1D4C20062F7A8 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		283A783123A1D4C20062F7A8 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		283A783323A1D4C20062F7A8 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
+		283A783423A1D4C20062F7A8 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		283A783623A1D4C60062F7A8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		283A783923A1D4C60062F7A8 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		283A783B23A1D4C60062F7A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		283A783C23A1D4C60062F7A8 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		283A783E23A1D4C60062F7A8 /* MixFiles.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MixFiles.entitlements; sourceTree = "<group>"; };
+		283A784423A246FB0062F7A8 /* DocTableCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DocTableCell.h; sourceTree = "<group>"; };
+		283A784523A246FB0062F7A8 /* DocTableCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DocTableCell.m; sourceTree = "<group>"; };
+		283A784723A26A500062F7A8 /* NSString+JCRegexHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+JCRegexHelper.m"; sourceTree = "<group>"; };
+		283A784823A26A500062F7A8 /* NSString+JCRegexHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+JCRegexHelper.h"; sourceTree = "<group>"; };
+		490645B8779C3F00B7713FAC /* Pods-MixFiles.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MixFiles.debug.xcconfig"; path = "Target Support Files/Pods-MixFiles/Pods-MixFiles.debug.xcconfig"; sourceTree = "<group>"; };
+		58303D58DB05109196F0A59F /* Pods_MixFiles.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MixFiles.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		283A782A23A1D4C20062F7A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5619F41A0131D8DD02FDBA95 /* Pods_MixFiles.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		283A782423A1D4C20062F7A8 = {
+			isa = PBXGroup;
+			children = (
+				283A782F23A1D4C20062F7A8 /* MixFiles */,
+				283A782E23A1D4C20062F7A8 /* Products */,
+				38AC2CC6046D22FE4724D7BF /* Pods */,
+				F5BDE51F175B01FFC4F686F9 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		283A782E23A1D4C20062F7A8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				283A782D23A1D4C20062F7A8 /* MixFiles.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		283A782F23A1D4C20062F7A8 /* MixFiles */ = {
+			isa = PBXGroup;
+			children = (
+				283A783023A1D4C20062F7A8 /* AppDelegate.h */,
+				283A783123A1D4C20062F7A8 /* AppDelegate.m */,
+				283A783323A1D4C20062F7A8 /* ViewController.h */,
+				283A783423A1D4C20062F7A8 /* ViewController.m */,
+				283A784823A26A500062F7A8 /* NSString+JCRegexHelper.h */,
+				283A784723A26A500062F7A8 /* NSString+JCRegexHelper.m */,
+				283A784423A246FB0062F7A8 /* DocTableCell.h */,
+				283A784523A246FB0062F7A8 /* DocTableCell.m */,
+				283A783623A1D4C60062F7A8 /* Assets.xcassets */,
+				283A783823A1D4C60062F7A8 /* Main.storyboard */,
+				283A783B23A1D4C60062F7A8 /* Info.plist */,
+				283A783C23A1D4C60062F7A8 /* main.m */,
+				283A783E23A1D4C60062F7A8 /* MixFiles.entitlements */,
+			);
+			path = MixFiles;
+			sourceTree = "<group>";
+		};
+		38AC2CC6046D22FE4724D7BF /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				490645B8779C3F00B7713FAC /* Pods-MixFiles.debug.xcconfig */,
+				0357B5D560391D4AAA4A476B /* Pods-MixFiles.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		F5BDE51F175B01FFC4F686F9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				58303D58DB05109196F0A59F /* Pods_MixFiles.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		283A782C23A1D4C20062F7A8 /* MixFiles */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 283A784123A1D4C60062F7A8 /* Build configuration list for PBXNativeTarget "MixFiles" */;
+			buildPhases = (
+				6449AB321186AA2BA85E512F /* [CP] Check Pods Manifest.lock */,
+				283A782923A1D4C20062F7A8 /* Sources */,
+				283A782A23A1D4C20062F7A8 /* Frameworks */,
+				283A782B23A1D4C20062F7A8 /* Resources */,
+				FC85F48C3C5C79469A454FD2 /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MixFiles;
+			productName = MixFiles;
+			productReference = 283A782D23A1D4C20062F7A8 /* MixFiles.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		283A782523A1D4C20062F7A8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1120;
+				ORGANIZATIONNAME = gelei;
+				TargetAttributes = {
+					283A782C23A1D4C20062F7A8 = {
+						CreatedOnToolsVersion = 11.2.1;
+					};
+				};
+			};
+			buildConfigurationList = 283A782823A1D4C20062F7A8 /* Build configuration list for PBXProject "MixFiles" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 283A782423A1D4C20062F7A8;
+			productRefGroup = 283A782E23A1D4C20062F7A8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				283A782C23A1D4C20062F7A8 /* MixFiles */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		283A782B23A1D4C20062F7A8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				283A783723A1D4C60062F7A8 /* Assets.xcassets in Resources */,
+				283A783A23A1D4C60062F7A8 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		6449AB321186AA2BA85E512F /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-MixFiles-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FC85F48C3C5C79469A454FD2 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MixFiles/Pods-MixFiles-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-MixFiles/Pods-MixFiles-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MixFiles/Pods-MixFiles-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		283A782923A1D4C20062F7A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				283A783523A1D4C20062F7A8 /* ViewController.m in Sources */,
+				283A783D23A1D4C60062F7A8 /* main.m in Sources */,
+				283A783223A1D4C20062F7A8 /* AppDelegate.m in Sources */,
+				283A784623A246FB0062F7A8 /* DocTableCell.m in Sources */,
+				283A784923A26A510062F7A8 /* NSString+JCRegexHelper.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		283A783823A1D4C60062F7A8 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				283A783923A1D4C60062F7A8 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		283A783F23A1D4C60062F7A8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		283A784023A1D4C60062F7A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		283A784223A1D4C60062F7A8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 490645B8779C3F00B7713FAC /* Pods-MixFiles.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MixFiles/MixFiles.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = U63496999C;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = MixFiles/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.glei.MixFiles;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		283A784323A1D4C60062F7A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0357B5D560391D4AAA4A476B /* Pods-MixFiles.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MixFiles/MixFiles.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = U63496999C;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = MixFiles/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.glei.MixFiles;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		283A782823A1D4C20062F7A8 /* Build configuration list for PBXProject "MixFiles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				283A783F23A1D4C60062F7A8 /* Debug */,
+				283A784023A1D4C60062F7A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		283A784123A1D4C60062F7A8 /* Build configuration list for PBXNativeTarget "MixFiles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				283A784223A1D4C60062F7A8 /* Debug */,
+				283A784323A1D4C60062F7A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 283A782523A1D4C20062F7A8 /* Project object */;
+}
