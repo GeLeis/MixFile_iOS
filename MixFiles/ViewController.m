@@ -195,6 +195,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 
 - (void)viewWillAppear {
     [super viewWillAppear];
+    self.view.window.title = @"MixFiles_OC";
     self.view.window.restorable = NO;
     [self.view.window setContentSize:NSMakeSize(860, 600)];
 }
