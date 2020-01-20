@@ -18,6 +18,15 @@
 static NSString *identifier = @"mixfile";
 /** 注释的正则,包括注释前的空格,注释后的空白符 */
 static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s?";
+//实现方法匹配规则,要求方法最后一个括号顶在最前面
+static NSString *kRegOfImpMethod = @"[\\-\\+]\\s?\\([\\s\\S]*?\\{[\\s\\S]*?\\n\\}";
+//声明方法匹配规则
+static NSString *kRegOfmethod = @"[\\-\\+]\\s?\\([\\s\\S]*?;";
+//属性匹配规则
+static NSString *kRegOfProp = @"@property[\\s\\S]*?;";
+/** Complile File */
+static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\*\\/";
+
 
 @interface ViewController ()<NSTableViewDelegate,NSTableViewDataSource>
 /** 选中文件路径 */
@@ -34,12 +43,15 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
 @property (nonatomic, strong) NSSwitch *mixImportSwitch;
 /** 删除注释 */
 @property (nonatomic, strong) NSSwitch *deleteNoteSwitch;
+/** 打乱编译顺序 */
+@property (nonatomic, strong) NSSwitch *mixCompileSwitch;
 
 
 @property (nonatomic, assign) NSControlStateValue mixProp;
 @property (nonatomic, assign) NSControlStateValue mixMethod;
 @property (nonatomic, assign) NSControlStateValue mixImport;
 @property (nonatomic, assign) NSControlStateValue deleteNote;
+@property (nonatomic, assign) NSControlStateValue compileState;
 //测试3
 @property (nonatomic, strong) NSButton *startMixBtn;
 @property (nonatomic, strong) NSTableView *tableview;
@@ -57,7 +69,7 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
     [self.view addSubview:self.addBtn];
     [self.addBtn mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.top.mas_equalTo(20);
-        make.size.mas_equalTo(CGSizeMake(80, 24));
+        make.size.mas_equalTo(CGSizeMake(100, 24));
     }];
     
     [self.view addSubview:self.cleanBtn];
@@ -162,6 +174,23 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
         make.left.equalTo(text4.mas_right).offset(20);
         make.centerY.equalTo(text4);
     }];
+    
+    NSTextField *text5 = [[NSTextField alloc] init];
+    text5.stringValue = @"Sources";
+    text5.enabled = NO;
+    text5.textColor = NSColor.whiteColor;
+    [self.view addSubview:text5];
+    [text5 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text4.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.mixCompileSwitch];
+    [self.mixCompileSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text5.mas_right).offset(20);
+        make.centerY.equalTo(text5);
+    }];
 }
 
 - (void)viewWillAppear {
@@ -226,50 +255,63 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
         for (NSString *fileIntactPath in filepaths) {
             if ([fileIntactPath hasSuffix:@".h"] ||
                 [fileIntactPath hasSuffix:@".m"]) {
-                dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
-                dispatch_async(self.queue, ^{
-                    //读取
-                    //文件内容
-                    NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
-                    fileContext = [self matchContentAndMix:fileContext mFile:[fileIntactPath hasSuffix:@".m"]];
-                    
-                    //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
-                    //否则writeHandle获取为空
-                    NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
-                    //将文件字节截短至0,相当于将文件清空,可供文件填写
-                    [writeHandle truncateFileAtOffset:0];
-                    NSError *error = nil;
-                    [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
-                    if (error) {
-                        NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
-                    }
-                    [writeHandle closeFile];
-                    
-                    dispatch_semaphore_signal(self.semaphore);
-                });
+                [self handleHeaderAndImpFile:fileIntactPath];
+            } else if (self.compileState == NSControlStateValueOn && [fileIntactPath containsString:@"project.pbxproj"]) {
+                [self handleXcodeprojFile:fileIntactPath];
             }
         }
-        NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
     }
+    NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
+}
+//处理头文件、实现文件
+- (void)handleHeaderAndImpFile:(NSString *)fileIntactPath {
+    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_async(self.queue, ^{
+        //读取
+        //文件内容
+        NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
+        fileContext = [self matchContentAndMix:fileContext mFile:[fileIntactPath hasSuffix:@".m"]];
+        
+        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+        //否则writeHandle获取为空
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
+        //将文件字节截短至0,相当于将文件清空,可供文件填写
+        [writeHandle truncateFileAtOffset:0];
+        NSError *error = nil;
+        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+        if (error) {
+            NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
+        }
+        [writeHandle closeFile];
+        
+        dispatch_semaphore_signal(self.semaphore);
+    });
 }
 
-- (void)mixPropSwitchChange:(NSSwitch *)sender {
-    self.mixProp = [sender state];
+//处理.xcodeproj 项目配置
+- (void)handleXcodeprojFile:(NSString *)fileIntactPath {
+    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_async(self.queue, ^{
+        
+        //文件内容
+        NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
+        fileContext = [self mixCompileFiles:fileContext];
+        
+        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+        //否则writeHandle获取为空
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
+        //将文件字节截短至0,相当于将文件清空,可供文件填写
+        [writeHandle truncateFileAtOffset:0];
+        NSError *error = nil;
+        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+        if (error) {
+            NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
+        }
+        [writeHandle closeFile];
+        
+        dispatch_semaphore_signal(self.semaphore);
+    });
 }
-
-- (void)mixMethodSwitchChange:(NSSwitch *)sender {
-    self.mixMethod = [sender state];
-}
-
-- (void)mixImportSwitchChange:(NSSwitch *)sender {
-    self.mixImport = [sender state];
-}
-
-- (void)deleteNote:(NSSwitch *)sender {
-    self.deleteNote = [sender state];
-}
-
-
 
 //正则匹配出所有的方法、属性
 - (NSString *)matchContentAndMix:(NSString *)content mFile:(BOOL)mFile{
@@ -348,9 +390,8 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
             
             //获取所有声明的属性
             NSMutableArray *props = [NSMutableArray array];
-            //属性匹配规则
-            NSString *regOfProp = @"@property[\\s\\S]*?;";
-            NSArray<NSTextCheckingResult*> *propmatchs = [interContent matchesWithRegex:regOfProp];
+            
+            NSArray<NSTextCheckingResult*> *propmatchs = [interContent matchesWithRegex:kRegOfProp];
             
             for (NSTextCheckingResult *propmatch in propmatchs) {
                 NSString *property = @"";
@@ -367,9 +408,7 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
             
             //获取所有声明的方法
             NSMutableArray *methods = [NSMutableArray array];
-            //声明方法匹配规则
-            NSString *regOfmethod = @"[\\-\\+]\\s?\\([\\s\\S]*?;";
-            NSArray<NSTextCheckingResult*> *methodmatchs = [interContent matchesWithRegex:regOfmethod];
+            NSArray<NSTextCheckingResult*> *methodmatchs = [interContent matchesWithRegex:kRegOfmethod];
             
             for (NSTextCheckingResult *methodmatch in methodmatchs) {
                 NSString *method = @"";
@@ -417,10 +456,8 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
             
             //获取所有实现的方法
             NSMutableArray *methodImps = [NSMutableArray array];
-            //实现方法匹配规则,要求方法最后一个括号顶在最前面
-            NSString *regOfImpMethod = @"[\\-\\+]\\s?\\([\\s\\S]*?\\{[\\s\\S]*?\\n\\}";
             //方法的实现
-            NSArray<NSTextCheckingResult*> *methodImpmatchs = [interContent matchesWithRegex:regOfImpMethod];
+            NSArray<NSTextCheckingResult*> *methodImpmatchs = [interContent matchesWithRegex:kRegOfImpMethod];
             
             for (NSTextCheckingResult *methodImpmatch in methodImpmatchs) {
                 NSString *method = @"";
@@ -452,6 +489,44 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
     }
     return content;
 }
+//打乱编译顺序
+- (NSString *)mixCompileFiles:(NSString *)content {
+    NSString *regOfPBXSourceBuildPhase = @"\\/\\* Begin PBXSourcesBuildPhase section \\*\\/[\\s\\S]*?\\/\\* End PBXSourcesBuildPhase section \\*\\/";
+    NSArray<NSTextCheckingResult*> *sectionMatch = [content matchesWithRegex:regOfPBXSourceBuildPhase];
+    NSString *section = [content substringWithRange:sectionMatch.firstObject.range];
+    
+    NSString *regOfSources = @"\\/\\* Sources \\*\\/ = \\{[\\s\\S]*?\\};";
+    NSArray<NSTextCheckingResult*> *sourcesMatchs = [section matchesWithRegex:regOfSources];
+    NSMutableArray<NSString *> *sourcesArr = [NSMutableArray array];
+    for (NSTextCheckingResult *sourcesMatch in sourcesMatchs) {
+        [sourcesArr addObject:[section substringWithRange:sourcesMatch.range]];
+    }
+    //遍历每一组/* Sources */ = {}
+    for (NSString *sources in sourcesArr) {
+        NSString *tmpcontent = [sources copy];
+        //kRegOfCompileFile
+        NSArray<NSTextCheckingResult*> *fileMatchs = [sources matchesWithRegex:kRegOfCompileFile];
+        NSMutableArray *files = [NSMutableArray array];
+        for (NSTextCheckingResult *filematch in fileMatchs) {
+            [files addObject:[sources substringWithRange:filematch.range]];
+        }
+        
+        //打乱方法实现
+        while (files.count > 1) {
+            uint32_t index = arc4random_uniform((uint32_t)(files.count - 1)) + 1;
+            NSString *firstStr = files[0];
+            NSString *secondStr = files[index];
+            tmpcontent = [tmpcontent stringByReplacingOccurrencesOfString:firstStr withString:kTMPREPLACE1];
+            tmpcontent = [tmpcontent stringByReplacingOccurrencesOfString:secondStr withString:kTMPREPLACE2];
+            tmpcontent = [tmpcontent stringByReplacingOccurrencesOfString:kTMPREPLACE1 withString:secondStr];
+            tmpcontent = [tmpcontent stringByReplacingOccurrencesOfString:kTMPREPLACE2 withString:firstStr];
+            [files removeObjectAtIndex:index];
+            [files removeObjectAtIndex:0];
+        }
+        content = [content stringByReplacingOccurrencesOfString:sources withString:tmpcontent];
+    }
+    return content;
+}
 
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView {
     return self.urls.count;
@@ -478,12 +553,32 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
     // Update the view, if already loaded.
 }
 
+- (void)mixPropSwitchChange:(NSSwitch *)sender {
+    self.mixProp = [sender state];
+}
+
+- (void)mixMethodSwitchChange:(NSSwitch *)sender {
+    self.mixMethod = [sender state];
+}
+
+- (void)mixImportSwitchChange:(NSSwitch *)sender {
+    self.mixImport = [sender state];
+}
+
+- (void)deleteNoteChange:(NSSwitch *)sender {
+    self.deleteNote = [sender state];
+}
+
+- (void)mixCompileChange:(NSSwitch *)sender {
+    self.compileState = [sender state];
+}
+
 - (NSButton *)addBtn {
     if (!_addBtn) {
         _addBtn = [[NSButton alloc] init];
         //    button.frame = CGRectMake(20, self.view.frame.size.height - 40, 50, 20);
         _addBtn.bezelColor = [NSColor grayColor];
-        [_addBtn setTitle:@"选择目录"];
+        [_addBtn setTitle:@"选择目录/文件"];
         _addBtn.target = self;
         [_addBtn setAction:@selector(addFile)];
     }
@@ -547,9 +642,19 @@ static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s
 - (NSSwitch *)deleteNoteSwitch {
     if (!_deleteNoteSwitch) {
         _deleteNoteSwitch = [[NSSwitch alloc] init];
-        [_deleteNoteSwitch setAction:@selector(deleteNote:)];
+        [_deleteNoteSwitch setAction:@selector(deleteNoteChange:)];
     }
     return _deleteNoteSwitch;
+}
+
+- (NSSwitch *)mixCompileSwitch {
+    if (!_mixCompileSwitch) {
+        _mixCompileSwitch = [[NSSwitch alloc] init];
+        _mixCompileSwitch.state = NSControlStateValueOn;
+        self.compileState = NSControlStateValueOn;
+        [_mixCompileSwitch setAction:@selector(mixCompileChange:)];
+    }
+    return _mixCompileSwitch;
 }
 
 - (NSTableView *)tableview {
