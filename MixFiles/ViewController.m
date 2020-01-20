@@ -16,11 +16,16 @@
 #define kLabelW 60
 
 static NSString *identifier = @"mixfile";
+/** 注释的正则,包括注释前的空格,注释后的空白符 */
+static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s?";
+
 @interface ViewController ()<NSTableViewDelegate,NSTableViewDataSource>
-/** 测试1 */
-@property (nonatomic, strong) NSMutableArray<NSURL *> *urls;
-///测试2
+/** 选中文件路径 */
+@property (nonatomic, strong) NSMutableArray<NSString *> *urls;
+///选择目录按钮
 @property (nonatomic, strong) NSButton *addBtn;
+/** 重新选择 */
+@property (nonatomic, strong) NSButton *cleanBtn;
 /** 是否混合属性 */
 @property (nonatomic, strong) NSSwitch *mixPropSwitch;
 /** 是否混合方法 */
@@ -52,6 +57,13 @@ static NSString *identifier = @"mixfile";
     [self.view addSubview:self.addBtn];
     [self.addBtn mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.top.mas_equalTo(20);
+        make.size.mas_equalTo(CGSizeMake(80, 24));
+    }];
+    
+    [self.view addSubview:self.cleanBtn];
+    [self.cleanBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.centerY.equalTo(self.addBtn);
+        make.left.equalTo(self.addBtn.mas_right).offset(20);
         make.size.mas_equalTo(CGSizeMake(80, 24));
     }];
     
@@ -172,19 +184,24 @@ static NSString *identifier = @"mixfile";
     if (finded == NSModalResponseOK) {
         //  NSFileHandlingPanelCancelButton = NSModalResponseCancel；     NSFileHandlingPanelOKButton = NSModalResponseOK,
         for (NSURL *url in [panel URLs]) {
-            NSLog(@"--->%@",url.absoluteString);
-            //这个url是文件的路径
-            //同时这里可以处理你要做的事情 do something
+            //这个url是文件的路径,已经加过了过滤掉
+            if (![self.urls containsObject:url.absoluteString]) {
+                [self.urls addObject:url.absoluteString];
+            }
         }
-        [self.urls addObjectsFromArray:[panel URLs]];
     }
+    [self.tableview reloadData];
+}
+
+- (void)cleanFile {
+    [self.urls removeAllObjects];
     [self.tableview reloadData];
 }
 
 
 - (void)startMix {
-    for (NSURL *fileUrl in self.urls) {
-        NSString *path = fileUrl.absoluteString;
+    for (NSString *fileUrl in self.urls) {
+        NSString *path = [fileUrl copy];
         if ([path containsString:@"file://"]) {
             path = [path stringByReplacingOccurrencesOfString:@"file://" withString:@""];
         }
@@ -219,6 +236,8 @@ static NSString *identifier = @"mixfile";
                     //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
                     //否则writeHandle获取为空
                     NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
+                    //将文件字节截短至0,相当于将文件清空,可供文件填写
+                    [writeHandle truncateFileAtOffset:0];
                     NSError *error = nil;
                     [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
                     if (error) {
@@ -271,7 +290,7 @@ static NSString *identifier = @"mixfile";
 
 - (NSString *)matchNote:(NSString *)content {
     //判断是否需要删除注释,如果删除,需要删掉注释、注释前的空白符、注释后的换行等空白符
-    NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:@"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s?" options:0 error:nil];
+    NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:kRegOfNote options:0 error:nil];
     return [regularExpression stringByReplacingMatchesInString:content options:0 range:NSMakeRange(0, content.length) withTemplate:@""];
 }
 
@@ -318,10 +337,6 @@ static NSString *identifier = @"mixfile";
     for (NSString *interContent in results) {
         //interContent为每一个类的类容
         //注释
-        //多行
-        NSString *regOfNote1 = @"\\/\\*[\\s\\S]*?\\*\\/[\f\n\r\t\v]";
-        //单行
-        NSString *regOfNote2 = @"\\/\\/.*?[\f\n\r\t\v]";
         NSMutableArray<NSTextCheckingResult*> *notematchs = nil;
         
         NSUInteger startLocation = 0;
@@ -329,8 +344,7 @@ static NSString *identifier = @"mixfile";
         //如果是类的声明或者是extensio部分,则只会存在property、方法声明,@implementation部分只会存在方法实现部分
         if ([interContent containsString:@"@interface"]) {
             //匹配注释
-            notematchs = [NSMutableArray arrayWithArray:[interContent matchesWithRegex:regOfNote1]];
-            [notematchs addObjectsFromArray:[interContent matchesWithRegex:regOfNote2]];
+            notematchs = [NSMutableArray arrayWithArray:[interContent matchesWithRegex:kRegOfNote]];
             
             //获取所有声明的属性
             NSMutableArray *props = [NSMutableArray array];
@@ -399,10 +413,7 @@ static NSString *identifier = @"mixfile";
             }
         } else if ([interContent containsString:@"@implementation"]) {
             ////说明是实现类,实现类需要匹配方法实现
-            
-            
-            notematchs = [NSMutableArray arrayWithArray:[interContent matchesWithRegex:regOfNote1]];
-            [notematchs addObjectsFromArray:[interContent matchesWithRegex:regOfNote2]];
+            notematchs = [NSMutableArray arrayWithArray:[interContent matchesWithRegex:kRegOfNote]];
             
             //获取所有实现的方法
             NSMutableArray *methodImps = [NSMutableArray array];
@@ -457,7 +468,7 @@ static NSString *identifier = @"mixfile";
         cell = [[DocTableCell alloc] init];
         cell.identifier = identifier;
     }
-    cell.textf.stringValue = self.urls[row].absoluteString;
+    cell.textf.stringValue = self.urls[row];
     return cell;
 }
 
@@ -477,6 +488,18 @@ static NSString *identifier = @"mixfile";
         [_addBtn setAction:@selector(addFile)];
     }
     return _addBtn;
+}
+
+- (NSButton *)cleanBtn {
+    if (!_cleanBtn) {
+        _cleanBtn = [[NSButton alloc] init];
+        //    button.frame = CGRectMake(20, self.view.frame.size.height - 40, 50, 20);
+        _cleanBtn.bezelColor = [NSColor grayColor];
+        [_cleanBtn setTitle:@"重新选择"];
+        _cleanBtn.target = self;
+        [_cleanBtn setAction:@selector(cleanFile)];
+    }
+    return _cleanBtn;
 }
 
 - (NSButton *)startMixBtn {

@@ -14,7 +14,6 @@
 - (instancetype)initWithFrame:(NSRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.layer.backgroundColor = [NSColor greenColor].CGColor;
         self.wantsLayer = YES;
         _textf = [[NSTextField alloc] init];
         _textf.textColor = [NSColor whiteColor];
