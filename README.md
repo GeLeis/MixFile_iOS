@@ -9,4 +9,8 @@
 6.Compile Sources打乱,需要选中打乱的'.xcodeproj'文件
 ```
 ## 说明:代码打乱时,如果没有设置删除注释,则注释会和声明的属性或者方法绑定在一起
+
+## 界面
+![MixFile_UI.jpg](https://github.com/GeLeis/MixFile_iOS/blob/master/mix_file.jpg)
+
 ### Author:869313996@qq.com
