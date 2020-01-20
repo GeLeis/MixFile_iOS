@@ -46,7 +46,6 @@ static NSString *identifier = @"mixfile";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
     self.semaphore = dispatch_semaphore_create(6);
     self.queue = dispatch_queue_create("gl_mixfiles_queue", DISPATCH_QUEUE_CONCURRENT);
     
@@ -153,6 +152,12 @@ static NSString *identifier = @"mixfile";
     }];
 }
 
+- (void)viewWillAppear {
+    [super viewWillAppear];
+    self.view.window.restorable = NO;
+    [self.view.window setContentSize:NSMakeSize(860, 600)];
+}
+
 - (void)addFile {
     NSOpenPanel *panel = [NSOpenPanel openPanel];
 
@@ -225,6 +230,7 @@ static NSString *identifier = @"mixfile";
                 });
             }
         }
+        NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
     }
 }
 
