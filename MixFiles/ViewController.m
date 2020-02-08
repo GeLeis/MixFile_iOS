@@ -11,6 +11,9 @@
 #import "DocTableCell.h"
 #import "NSString+JCRegexHelper.h"
 #import <AppKit/NSWorkspace.h>
+#import "MBProgressHUD/MBProgressHUD.h"
+#import <ReactiveObjC/ReactiveObjC.h>
+
 #define kTMPREPLACE1 @"GELEI_MIXFILE_RANDOM_kTEMPLATE1"
 #define kTMPREPLACE2 @"GELEI_MIXFILE_RANDOM__kTEMPLATE2"
 #define kLabelW 60
@@ -31,6 +34,10 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 @interface ViewController ()<NSTableViewDelegate,NSTableViewDataSource>
 /** 选中文件路径 */
 @property (nonatomic, strong) NSMutableArray<NSString *> *urls;
+/** 项目.xcodeproj路径 */
+@property (nonatomic, copy) NSString *rootUrl;
+/** 项目根目录路径 */
+@property (nonatomic, copy) NSString *projectUrl;
 ///选择目录按钮
 @property (nonatomic, strong) NSButton *addBtn;
 /** 重新选择 */
@@ -45,6 +52,10 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 @property (nonatomic, strong) NSSwitch *deleteNoteSwitch;
 /** 打乱编译顺序 */
 @property (nonatomic, strong) NSSwitch *mixCompileSwitch;
+/** 文件添加前缀同时文件中的类也会添加添加前缀,文件名制作import导入,实际调用是类名相关 */
+@property (nonatomic, strong) NSSwitch *prefixSwitch;
+/** 类前缀 */
+@property (nonatomic, copy) NSString *class_prefix;
 
 
 @property (nonatomic, assign) NSControlStateValue mixProp;
@@ -52,11 +63,21 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 @property (nonatomic, assign) NSControlStateValue mixImport;
 @property (nonatomic, assign) NSControlStateValue deleteNote;
 @property (nonatomic, assign) NSControlStateValue compileState;
+@property (nonatomic, assign) NSControlStateValue prefixState;
 //测试3
 @property (nonatomic, strong) NSButton *startMixBtn;
 @property (nonatomic, strong) NSTableView *tableview;
 @property (nonatomic, strong) dispatch_queue_t queue;
 @property (nonatomic, strong) dispatch_semaphore_t semaphore;
+/** 修改的类名 */
+@property (nonatomic, strong) NSMutableDictionary *mixedClasses;
+/** 修改的方法名 */
+@property (nonatomic, strong) NSMutableDictionary *mixedMethods;
+/** 前缀 */
+@property (nonatomic, copy) NSString *gl_prefix;
+/** 所有的.h、.m、.c,目前只考虑 */
+@property (nonatomic, strong) NSMutableArray *projectAllImpFiles;
+@property (nonatomic, strong) NSArray *filterDirs;
 @end
 
 @implementation ViewController
@@ -65,132 +86,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     [super viewDidLoad];
     self.semaphore = dispatch_semaphore_create(6);
     self.queue = dispatch_queue_create("gl_mixfiles_queue", DISPATCH_QUEUE_CONCURRENT);
-    
-    [self.view addSubview:self.addBtn];
-    [self.addBtn mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.top.mas_equalTo(20);
-        make.size.mas_equalTo(CGSizeMake(100, 24));
-    }];
-    
-    [self.view addSubview:self.cleanBtn];
-    [self.cleanBtn mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.centerY.equalTo(self.addBtn);
-        make.left.equalTo(self.addBtn.mas_right).offset(20);
-        make.size.mas_equalTo(CGSizeMake(80, 24));
-    }];
-    
-    NSTableColumn *column1 = [[NSTableColumn alloc] initWithIdentifier:@"columnFrist"];
-    column1.title = @"已经选择的目录";
-    [column1 setWidth:200];
-    [self.tableview addTableColumn:column1];
-    
-    NSScrollView *tableContainerView = [[NSScrollView alloc] init];
-    [tableContainerView setDocumentView:self.tableview];
-    [tableContainerView setDrawsBackground:NO];//不画背景（背景默认画成白色）
-    [tableContainerView setHasVerticalScroller:YES];//有垂直滚动条
-    //[_tableContainer setHasHorizontalScroller:YES];  //有水平滚动条
-    tableContainerView.autohidesScrollers = YES;//自动隐藏滚动条（滚动的时候出现）
-    [self.view addSubview:tableContainerView];
-    [tableContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.mas_equalTo(20);
-        make.top.equalTo(self.addBtn.mas_bottom).offset(15);
-        make.width.mas_equalTo(400);
-        make.bottom.equalTo(self.view).offset(-20);
-    }];
-    
-    
-    [self.view addSubview:self.startMixBtn];
-    [self.startMixBtn mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.height.mas_equalTo(44);
-        make.width.mas_equalTo(400);
-        make.bottom.equalTo(self.view).offset(-20);
-    }];
-    
-    NSTextField *text1 = [[NSTextField alloc] init];
-    text1.stringValue = @"属性";
-    text1.enabled = NO;
-    text1.textColor = NSColor.whiteColor;
-    [self.view addSubview:text1];
-    [text1 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(self.view).offset(20);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
-    }];
-    
-    [self.view addSubview:self.mixPropSwitch];
-    [self.mixPropSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text1.mas_right).offset(20);
-        make.centerY.equalTo(text1);
-    }];
-    
-    NSTextField *text2 = [[NSTextField alloc] init];
-    text2.stringValue = @"方法";
-    text2.enabled = NO;
-    text2.textColor = NSColor.whiteColor;
-    [self.view addSubview:text2];
-    [text2 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text1.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
-    }];
-    
-    [self.view addSubview:self.mixMethodSwitch];
-    [self.mixMethodSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text2.mas_right).offset(20);
-        make.centerY.equalTo(text2);
-    }];
-    
-    NSTextField *text3 = [[NSTextField alloc] init];
-    text3.stringValue = @"Import";
-    text3.enabled = NO;
-    text3.textColor = NSColor.whiteColor;
-    [self.view addSubview:text3];
-    [text3 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text2.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
-    }];
-    
-    [self.view addSubview:self.mixImportSwitch];
-    [self.mixImportSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text3.mas_right).offset(20);
-        make.centerY.equalTo(text3);
-    }];
-    
-    NSTextField *text4 = [[NSTextField alloc] init];
-    text4.stringValue = @"删除注释";
-    text4.enabled = NO;
-    text4.textColor = NSColor.whiteColor;
-    [self.view addSubview:text4];
-    [text4 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text3.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
-    }];
-    
-    [self.view addSubview:self.deleteNoteSwitch];
-    [self.deleteNoteSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text4.mas_right).offset(20);
-        make.centerY.equalTo(text4);
-    }];
-    
-    NSTextField *text5 = [[NSTextField alloc] init];
-    text5.stringValue = @"Sources";
-    text5.enabled = NO;
-    text5.textColor = NSColor.whiteColor;
-    [self.view addSubview:text5];
-    [text5 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text4.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
-    }];
-    
-    [self.view addSubview:self.mixCompileSwitch];
-    [self.mixCompileSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text5.mas_right).offset(20);
-        make.centerY.equalTo(text5);
-    }];
+    [self setupView];
 }
 
 - (void)viewWillAppear {
@@ -200,27 +96,100 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     [self.view.window setContentSize:NSMakeSize(860, 600)];
 }
 
+- (void)setRootUrl:(NSString *)rootUrl {
+    _rootUrl = rootUrl;
+    NSString *xcodeProName = _rootUrl.lastPathComponent;
+    //获取项目目录
+    NSString *propath = [rootUrl stringByReplacingOccurrencesOfString:xcodeProName withString:@""];
+    if ([propath containsString:@"file://"]) {
+        propath = [propath stringByReplacingOccurrencesOfString:@"file://" withString:@""];
+    }
+    if ([propath isEqualToString:_projectUrl]) {
+        return;
+    }
+    [self.projectAllImpFiles removeAllObjects];
+    _projectUrl = propath;
+    NSError *error = nil;
+    //递归获取所有的文件夹及文件
+    NSArray *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:_projectUrl error:&error];
+    if (error) {
+        NSLog(@"\nMix Error:\n%@\n",error.description);
+    }
+    
+    for (NSString *filename in filenames) {
+        BOOL filter = NO;
+        for (NSString *filterStr in self.filterDirs) {
+            if ([filename containsString:filterStr]) {
+                filter = YES;
+                break;
+            }
+        }
+        if (filter) {
+            continue;
+        }
+        NSString *subpath = [_projectUrl stringByAppendingPathComponent:filename];
+        BOOL isDir;
+        [[NSFileManager defaultManager] fileExistsAtPath:subpath isDirectory:&isDir];
+        //判断是否是文件夹
+        if (isDir) {
+            NSError *error = nil;
+            //递归获取所有的文件夹及文件
+            NSArray *names = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:subpath error:&error];
+            if (error) {
+                NSLog(@"\nMix Error:\n%@\n",error.description);
+                continue;
+            }
+            for (NSString *name in names) {
+                if ([name hasSuffix:@".m"] ||
+                    [name hasSuffix:@".h"] ||
+                    [name hasSuffix:@".c"]) {
+                    [self.projectAllImpFiles addObject:[subpath stringByAppendingPathComponent:name]];
+                }
+            }
+        } else if([subpath hasSuffix:@".m"] ||
+                  [subpath hasSuffix:@".h"] ||
+                  [subpath hasSuffix:@".c"]){
+            [self.projectAllImpFiles addObject:subpath];
+        }
+    }
+}
+
+//添加文件
 - (void)addFile {
+    [self chooseFiles:^(NSArray<NSURL *> *urls) {
+        for (NSURL *url in urls) {
+            //这个url是文件的路径,已经加过了过滤掉
+            if (![self.urls containsObject:url.absoluteString]) {
+                [self.urls addObject:url.absoluteString];
+                if ([url.absoluteString hasSuffix:@".xcodeproj"]) {
+                    self.rootUrl = url.absoluteString;
+                }
+            }
+        }
+        [self.tableview reloadData];
+    } multipleSelection:YES];
+}
+//选择文件
+- (void)chooseFiles:(void(^)(NSArray<NSURL *> *urls))completion multipleSelection:(BOOL)MultipleSelection{
     NSOpenPanel *panel = [NSOpenPanel openPanel];
 
     [panel setCanChooseFiles:YES];//是否能选择文件file
 
     [panel setCanChooseDirectories:YES];//是否能打开文件夹
 
-    [panel setAllowsMultipleSelection:YES];//是否允许多选file
+    [panel setAllowsMultipleSelection:MultipleSelection];//是否允许多选file
 
     NSInteger finded = [panel runModal]; //获取panel的响应
 
     if (finded == NSModalResponseOK) {
-        //  NSFileHandlingPanelCancelButton = NSModalResponseCancel；     NSFileHandlingPanelOKButton = NSModalResponseOK,
-        for (NSURL *url in [panel URLs]) {
-            //这个url是文件的路径,已经加过了过滤掉
-            if (![self.urls containsObject:url.absoluteString]) {
-                [self.urls addObject:url.absoluteString];
-            }
+        if (completion) {
+            completion([panel URLs]);
+        }
+    } else {
+        if (completion) {
+            completion(@[]);
         }
     }
-    [self.tableview reloadData];
 }
 
 - (void)cleanFile {
@@ -230,6 +199,149 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 
 
 - (void)startMix {
+    [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    
+    //Compile Sources、文件名修改等涉及.pbxproj修改的优先执行
+    [self handleXcodeprojFile];
+    
+    [self modifyFileContent];
+    
+    NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
+    [MBProgressHUD hideHUDForView:self.view animated:YES];
+    [self showTip:@"完成✅"];
+}
+
+//处理头文件、实现文件
+- (void)handleHeaderAndImpFile:(NSString *)fileIntactPath {
+    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_async(self.queue, ^{
+        NSString *desFilePah = fileIntactPath;
+        //读取
+        //文件内容
+        NSString *fileContext = [NSString stringWithContentsOfFile:desFilePah encoding:NSUTF8StringEncoding error:nil];
+        fileContext = [self matchContentAndMix:fileContext mFile:[desFilePah hasSuffix:@".m"]];
+        
+        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+        //否则writeHandle获取为空
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:desFilePah];
+        //将文件字节截短至0,相当于将文件清空,可供文件填写
+        [writeHandle truncateFileAtOffset:0];
+        NSError *error = nil;
+        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+        if (error) {
+            NSLog(@"FilePath=%@\nError=%@",desFilePah,error);
+        }
+        [writeHandle closeFile];
+        dispatch_semaphore_signal(self.semaphore);
+    });
+}
+
+- (NSString *)modifyFileNames:(NSString *)fileContext {
+    NSString *regOfPBXFileReference = @"\\/\\* Begin PBXFileReference section \\*\\/[\\s\\S]*?\\/\\* End PBXFileReference section \\*\\/";
+    NSArray<NSTextCheckingResult*> *fileReferenceMatch = [fileContext matchesWithRegex:regOfPBXFileReference];
+    NSString *fileReferenceSection = [fileContext substringWithRange:fileReferenceMatch.firstObject.range];
+    NSMutableString *tmpFileReference = [NSMutableString stringWithString:fileReferenceSection];
+    //防止一遍遍历一遍修改
+    NSArray *tmpUlrs = [NSArray arrayWithArray:[self.urls copy]];
+    //修改文件名:
+    for (NSString *fileUrl in tmpUlrs) {
+        NSString *path = [fileUrl copy];
+        if ([path containsString:@"file://"]) {
+            path = [path stringByReplacingOccurrencesOfString:@"file://" withString:@""];
+        }
+        NSMutableArray *filepaths = [NSMutableArray array];
+        BOOL isDir;
+        [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDir];
+        //判断是否是文件夹
+        if (isDir) {
+            NSError *error = nil;
+            //递归获取所有的文件夹及文件
+            NSArray *filenames = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:path error:&error];
+            if (error) {
+                NSLog(@"\nMix Error:\n%@\n",error.description);
+                continue;
+            }
+            for (NSString *filename in filenames) {
+                [filepaths addObject:[path stringByAppendingPathComponent:filename]];
+            }
+        } else {
+            [filepaths addObject:path];
+        }
+        for (NSString *fileIntactPath in filepaths) {
+            if ([fileIntactPath hasSuffix:@".h"] ||
+                [fileIntactPath hasSuffix:@".m"]) {
+                [self modifyFileName:fileIntactPath projFileContext:tmpFileReference hFile:[fileIntactPath hasSuffix:@".h"]];
+            }
+        }
+    }
+    return [fileContext stringByReplacingOccurrencesOfString:fileReferenceSection withString:tmpFileReference];
+}
+
+//修改文件名
+- (void)modifyFileName:(NSString *)path projFileContext:(NSMutableString *)projFileContext hFile:(BOOL)hFile {
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *filename = [path lastPathComponent];
+    NSString *prepath = [path stringByReplacingOccurrencesOfString:filename withString:@""];
+    //新的文件名
+    NSString *newFileName = [NSString stringWithFormat:@"%@%@",self.gl_prefix,filename];
+    NSString *topath = [prepath stringByAppendingString:newFileName];
+    NSError *error = nil;
+    [fileManager moveItemAtPath:path toPath:topath error:&error];
+    if (error) {
+        NSLog(@"Error : %@",error);
+        return ;
+    }
+    //文件名修改后,修改列表中的名称
+    NSString *orldFileURL = nil;
+    NSString *newfileURL = nil;
+    for (NSString *fileUrl in self.urls) {
+        if ([fileUrl containsString:path]) {
+            orldFileURL = fileUrl;
+            newfileURL = [fileUrl stringByReplacingOccurrencesOfString:path withString:topath];
+            break;
+        }
+    }
+    if (newfileURL) {
+        NSInteger index = [self.urls indexOfObject:orldFileURL];
+        [self.urls removeObject:orldFileURL];
+        [self.urls insertObject:newfileURL atIndex:index];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.tableview reloadDataForRowIndexes:[NSIndexSet indexSetWithIndex:index] columnIndexes:[NSIndexSet indexSetWithIndex:0]];
+        });
+    }
+    //替换配置中的文件名
+    [projFileContext replaceOccurrencesOfString:filename withString:newFileName options:NSLiteralSearch range:NSMakeRange(0, projFileContext.length)];
+    
+    
+    //对于.h文件,需要修改所有实现文件中对该文件有import的
+    if (hFile) {
+        for (NSString *impFile in self.projectAllImpFiles) {
+            //文件内容
+            NSString *fileContext = [NSString stringWithContentsOfFile:impFile encoding:NSUTF8StringEncoding error:nil];
+            fileContext = [fileContext stringByReplacingOccurrencesOfString:filename withString:newFileName];
+            //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+            //否则writeHandle获取为空
+            NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:impFile];
+            //将文件字节截短至0,相当于将文件清空,可供文件填写
+            [writeHandle truncateFileAtOffset:0];
+            NSError *error = nil;
+            [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+            [writeHandle closeFile];
+        }
+    }
+}
+
+- (void)modifyFileContent {
+    BOOL modifyContent = NO;
+    if (self.mixProp == NSControlStateValueOn ||
+        self.mixMethod == NSControlStateValueOn ||
+        self.mixImport == NSControlStateValueOn ||
+        self.deleteNote == NSControlStateValueOn) {
+        modifyContent = YES;
+    }
+    if (!modifyContent) {
+        return;
+    }
     for (NSString *fileUrl in self.urls) {
         NSString *path = [fileUrl copy];
         if ([path containsString:@"file://"]) {
@@ -257,61 +369,59 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             if ([fileIntactPath hasSuffix:@".h"] ||
                 [fileIntactPath hasSuffix:@".m"]) {
                 [self handleHeaderAndImpFile:fileIntactPath];
-            } else if (self.compileState == NSControlStateValueOn && [fileIntactPath containsString:@"project.pbxproj"]) {
-                [self handleXcodeprojFile:fileIntactPath];
             }
         }
     }
-    NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
-}
-//处理头文件、实现文件
-- (void)handleHeaderAndImpFile:(NSString *)fileIntactPath {
-    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
-    dispatch_async(self.queue, ^{
-        //读取
-        //文件内容
-        NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
-        fileContext = [self matchContentAndMix:fileContext mFile:[fileIntactPath hasSuffix:@".m"]];
-        
-        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
-        //否则writeHandle获取为空
-        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
-        //将文件字节截短至0,相当于将文件清空,可供文件填写
-        [writeHandle truncateFileAtOffset:0];
-        NSError *error = nil;
-        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
-        if (error) {
-            NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
-        }
-        [writeHandle closeFile];
-        
-        dispatch_semaphore_signal(self.semaphore);
-    });
 }
 
 //处理.xcodeproj 项目配置
-- (void)handleXcodeprojFile:(NSString *)fileIntactPath {
-    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
-    dispatch_async(self.queue, ^{
-        
-        //文件内容
-        NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
-        fileContext = [self mixCompileFiles:fileContext];
-        
-        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
-        //否则writeHandle获取为空
-        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
-        //将文件字节截短至0,相当于将文件清空,可供文件填写
-        [writeHandle truncateFileAtOffset:0];
-        NSError *error = nil;
-        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
-        if (error) {
-            NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
+- (void)handleXcodeprojFile {
+    //是否需要修改xcodeproj,避免对xcodeproj没必要的读写操作
+    BOOL action = NO;
+    if (self.compileState == NSControlStateValueOn ||
+        (self.prefixState == NSControlStateValueOn && self.gl_prefix.length > 0)) {
+        action = YES;
+    }
+    if (!action) {
+        return;
+    }
+    NSString *projFilePath = [self.rootUrl copy];
+    if (!projFilePath) {
+        for (NSString *fileUrl in self.urls) {
+            if ([fileUrl containsString:@".xcodeproj"]) {
+                projFilePath = [fileUrl copy];
+                break;
+            }
         }
-        [writeHandle closeFile];
-        
-        dispatch_semaphore_signal(self.semaphore);
-    });
+    }
+    if ([projFilePath containsString:@"file://"]) {
+        projFilePath = [projFilePath stringByReplacingOccurrencesOfString:@"file://" withString:@""];
+    }
+    projFilePath = [projFilePath stringByAppendingPathComponent:@"project.pbxproj"];
+    //文件内容
+    NSString *fileContext = [NSString stringWithContentsOfFile:projFilePath encoding:NSUTF8StringEncoding error:nil];
+    
+    if (self.compileState == NSControlStateValueOn) {
+        //编译混合,同时修改pbxproj
+        fileContext = [self mixCompileFiles:fileContext];
+    }
+    
+    if (self.prefixState == NSControlStateValueOn && self.gl_prefix.length > 0) {
+        //修改文件名称,同时修改pbxproj
+        fileContext = [self modifyFileNames:fileContext];
+    }
+    
+    //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+    //否则writeHandle获取为空
+    NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:projFilePath];
+    //将文件字节截短至0,相当于将文件清空,可供文件填写
+    [writeHandle truncateFileAtOffset:0];
+    NSError *error = nil;
+    [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+    if (error) {
+        NSLog(@"FilePath=%@\nError=%@",projFilePath,error);
+    }
+    [writeHandle closeFile];
 }
 
 //正则匹配出所有的方法、属性
@@ -572,6 +682,190 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 
 - (void)mixCompileChange:(NSSwitch *)sender {
     self.compileState = [sender state];
+    if (self.compileState == NSControlStateValueOn && !self.rootUrl) {
+        [self chooseFiles:^(NSArray<NSURL *> *urls) {
+            if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
+                self.rootUrl = urls.firstObject.absoluteString;
+            } else {
+                self.compileState = NSControlStateValueOff;
+                sender.state = NSControlStateValueOff;
+                [self showTip:@"请选择.xcodeproj"];
+            }
+        } multipleSelection:NO];
+    }
+}
+
+- (void)prefixChnage:(NSSwitch *)sender {
+    self.prefixState = [sender state];
+    if (self.prefixState == NSControlStateValueOn && !self.rootUrl) {
+        [self chooseFiles:^(NSArray<NSURL *> *urls) {
+            if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
+                self.rootUrl = urls.firstObject.absoluteString;
+            } else {
+                self.prefixState = NSControlStateValueOff;
+                sender.state = NSControlStateValueOff;
+                [self showTip:@"请选择.xcodeproj"];
+            }
+        } multipleSelection:NO];
+    }
+}
+
+- (void)showTip:(NSString *)tip {
+    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    hud.mode = MBProgressHUDModeText;
+    hud.labelText = [NSString stringWithFormat:@"%@\n",tip];
+    [hud hide:YES afterDelay:2];
+}
+
+- (void)setupView {
+    [self.view addSubview:self.addBtn];
+    [self.addBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.top.mas_equalTo(20);
+        make.size.mas_equalTo(CGSizeMake(100, 24));
+    }];
+    
+    [self.view addSubview:self.cleanBtn];
+    [self.cleanBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.centerY.equalTo(self.addBtn);
+        make.left.equalTo(self.addBtn.mas_right).offset(20);
+        make.size.mas_equalTo(CGSizeMake(80, 24));
+    }];
+    
+    NSTableColumn *column1 = [[NSTableColumn alloc] initWithIdentifier:@"columnFrist"];
+    column1.title = @"已经选择的目录";
+    [column1 setWidth:200];
+    [self.tableview addTableColumn:column1];
+    
+    NSScrollView *tableContainerView = [[NSScrollView alloc] init];
+    [tableContainerView setDocumentView:self.tableview];
+    [tableContainerView setDrawsBackground:NO];//不画背景（背景默认画成白色）
+    [tableContainerView setHasVerticalScroller:YES];//有垂直滚动条
+    //[_tableContainer setHasHorizontalScroller:YES];  //有水平滚动条
+    tableContainerView.autohidesScrollers = YES;//自动隐藏滚动条（滚动的时候出现）
+    [self.view addSubview:tableContainerView];
+    [tableContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(20);
+        make.top.equalTo(self.addBtn.mas_bottom).offset(15);
+        make.width.mas_equalTo(400);
+        make.bottom.equalTo(self.view).offset(-20);
+    }];
+    
+    
+    [self.view addSubview:self.startMixBtn];
+    [self.startMixBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.height.mas_equalTo(44);
+        make.width.mas_equalTo(400);
+        make.bottom.equalTo(self.view).offset(-20);
+    }];
+    
+    NSTextField *text1 = [[NSTextField alloc] init];
+    text1.stringValue = @"属性";
+    text1.enabled = NO;
+    text1.textColor = NSColor.whiteColor;
+    [self.view addSubview:text1];
+    [text1 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(self.view).offset(20);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.mixPropSwitch];
+    [self.mixPropSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text1.mas_right).offset(20);
+        make.centerY.equalTo(text1);
+    }];
+    
+    NSTextField *text2 = [[NSTextField alloc] init];
+    text2.stringValue = @"方法";
+    text2.enabled = NO;
+    text2.textColor = NSColor.whiteColor;
+    [self.view addSubview:text2];
+    [text2 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text1.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.mixMethodSwitch];
+    [self.mixMethodSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text2.mas_right).offset(20);
+        make.centerY.equalTo(text2);
+    }];
+    
+    NSTextField *text3 = [[NSTextField alloc] init];
+    text3.stringValue = @"Import";
+    text3.enabled = NO;
+    text3.textColor = NSColor.whiteColor;
+    [self.view addSubview:text3];
+    [text3 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text2.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.mixImportSwitch];
+    [self.mixImportSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text3.mas_right).offset(20);
+        make.centerY.equalTo(text3);
+    }];
+    
+    NSTextField *text4 = [[NSTextField alloc] init];
+    text4.stringValue = @"删除注释";
+    text4.enabled = NO;
+    text4.textColor = NSColor.whiteColor;
+    [self.view addSubview:text4];
+    [text4 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text3.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.deleteNoteSwitch];
+    [self.deleteNoteSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text4.mas_right).offset(20);
+        make.centerY.equalTo(text4);
+    }];
+    
+    NSTextField *text5 = [[NSTextField alloc] init];
+    text5.stringValue = @"Sources";
+    text5.enabled = NO;
+    text5.textColor = NSColor.whiteColor;
+    [self.view addSubview:text5];
+    [text5 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text4.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    
+    [self.view addSubview:self.mixCompileSwitch];
+    [self.mixCompileSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text5.mas_right).offset(20);
+        make.centerY.equalTo(text5);
+    }];
+    
+    NSTextField *text6 = [[NSTextField alloc] init];
+    text6.placeholderString = @"前缀";
+    text6.enabled = YES;
+    text6.textColor = NSColor.whiteColor;
+    [self.view addSubview:text6];
+    [text6 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(text5.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+    }];
+    @weakify(self);
+    [[text6 rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
+        @strongify(self);
+        self.gl_prefix = x;
+    }];
+    
+    [self.view addSubview:self.prefixSwitch];
+    [self.prefixSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(text6.mas_right).offset(20);
+        make.centerY.equalTo(text6);
+    }];
+    
 }
 
 - (NSButton *)addBtn {
@@ -651,11 +945,17 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 - (NSSwitch *)mixCompileSwitch {
     if (!_mixCompileSwitch) {
         _mixCompileSwitch = [[NSSwitch alloc] init];
-        _mixCompileSwitch.state = NSControlStateValueOn;
-        self.compileState = NSControlStateValueOn;
         [_mixCompileSwitch setAction:@selector(mixCompileChange:)];
     }
     return _mixCompileSwitch;
+}
+
+- (NSSwitch *)prefixSwitch {
+    if (!_prefixSwitch) {
+        _prefixSwitch = [[NSSwitch alloc] init];
+        [_prefixSwitch setAction:@selector(prefixChnage:)];
+    }
+    return _prefixSwitch;
 }
 
 - (NSTableView *)tableview {
@@ -674,6 +974,28 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
         _urls = [NSMutableArray array];
     }
     return _urls;
+}
+
+- (NSMutableArray *)projectAllImpFiles {
+    if (!_projectAllImpFiles) {
+        _projectAllImpFiles = [NSMutableArray array];
+    }
+    return _projectAllImpFiles;
+}
+
+- (NSArray *)filterDirs {
+    return @[
+        @".DS_Store",
+        @".xcworkspace",
+        @"README.md",
+        @"Pods",
+        @".gitignore",
+        @"Podfile",
+        @".git",
+        @".xcodeproj",
+        @"Podfile.lock",
+        @".idea"
+    ];
 }
 
 @end

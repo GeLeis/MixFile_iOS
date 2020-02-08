@@ -14,6 +14,7 @@
 		283A783D23A1D4C60062F7A8 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A783C23A1D4C60062F7A8 /* main.m */; };
 		283A784623A246FB0062F7A8 /* DocTableCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A784523A246FB0062F7A8 /* DocTableCell.m */; };
 		283A784923A26A510062F7A8 /* NSString+JCRegexHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 283A784723A26A500062F7A8 /* NSString+JCRegexHelper.m */; };
+		2890E9FB23EE73960084E17E /* MBProgressHUD.m in Sources */ = {isa = PBXBuildFile; fileRef = 2890E9FA23EE73960084E17E /* MBProgressHUD.m */; };
 		5619F41A0131D8DD02FDBA95 /* Pods_MixFiles.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58303D58DB05109196F0A59F /* Pods_MixFiles.framework */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +34,8 @@
 		283A784523A246FB0062F7A8 /* DocTableCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DocTableCell.m; sourceTree = "<group>"; };
 		283A784723A26A500062F7A8 /* NSString+JCRegexHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+JCRegexHelper.m"; sourceTree = "<group>"; };
 		283A784823A26A500062F7A8 /* NSString+JCRegexHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+JCRegexHelper.h"; sourceTree = "<group>"; };
+		2890E9F923EE73950084E17E /* MBProgressHUD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MBProgressHUD.h; sourceTree = "<group>"; };
+		2890E9FA23EE73960084E17E /* MBProgressHUD.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBProgressHUD.m; sourceTree = "<group>"; };
 		490645B8779C3F00B7713FAC /* Pods-MixFiles.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MixFiles.debug.xcconfig"; path = "Target Support Files/Pods-MixFiles/Pods-MixFiles.debug.xcconfig"; sourceTree = "<group>"; };
 		58303D58DB05109196F0A59F /* Pods_MixFiles.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MixFiles.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -70,6 +73,7 @@
 		283A782F23A1D4C20062F7A8 /* MixFiles */ = {
 			isa = PBXGroup;
 			children = (
+				2890E9F823EE73830084E17E /* MBProgressHUD */,
 				283A783023A1D4C20062F7A8 /* AppDelegate.h */,
 				283A783123A1D4C20062F7A8 /* AppDelegate.m */,
 				283A783323A1D4C20062F7A8 /* ViewController.h */,
@@ -85,6 +89,15 @@
 				283A783E23A1D4C60062F7A8 /* MixFiles.entitlements */,
 			);
 			path = MixFiles;
+			sourceTree = "<group>";
+		};
+		2890E9F823EE73830084E17E /* MBProgressHUD */ = {
+			isa = PBXGroup;
+			children = (
+				2890E9F923EE73950084E17E /* MBProgressHUD.h */,
+				2890E9FA23EE73960084E17E /* MBProgressHUD.m */,
+			);
+			path = MBProgressHUD;
 			sourceTree = "<group>";
 		};
 		38AC2CC6046D22FE4724D7BF /* Pods */ = {
@@ -218,6 +231,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				283A783523A1D4C20062F7A8 /* ViewController.m in Sources */,
+				2890E9FB23EE73960084E17E /* MBProgressHUD.m in Sources */,
 				283A783D23A1D4C60062F7A8 /* main.m in Sources */,
 				283A783223A1D4C20062F7A8 /* AppDelegate.m in Sources */,
 				283A784623A246FB0062F7A8 /* DocTableCell.m in Sources */,

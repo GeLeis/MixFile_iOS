@@ -7,5 +7,5 @@ target 'MixFiles' do
 
   # Pods for MixFiles
   pod 'Masonry'
-
+  pod 'ReactiveObjC'
 end

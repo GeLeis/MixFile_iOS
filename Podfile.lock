@@ -1,16 +1,20 @@
 PODS:
   - Masonry (1.1.0)
+  - ReactiveObjC (3.1.1)
 
 DEPENDENCIES:
   - Masonry
+  - ReactiveObjC
 
 SPEC REPOS:
   trunk:
     - Masonry
+    - ReactiveObjC
 
 SPEC CHECKSUMS:
   Masonry: 678fab65091a9290e40e2832a55e7ab731aad201
+  ReactiveObjC: 011caa393aa0383245f2dcf9bf02e86b80b36040
 
-PODFILE CHECKSUM: 3f39523b1e8c0e8aef0b8fb806316cac3cac3aeb
+PODFILE CHECKSUM: d3223ccc3d90d4fa989a950ed05183b4fc79aaff
 
 COCOAPODS: 1.8.3
