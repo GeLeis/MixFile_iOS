@@ -29,6 +29,12 @@ static NSString *kRegOfmethod = @"[\\-\\+]\\s?\\([\\s\\S]*?;";
 static NSString *kRegOfProp = @"@property[\\s\\S]*?;";
 /** Complile File */
 static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\*\\/";
+//编译文件区域
+static NSString *kRegOfPBXSourceBuildPhase = @"\\/\\* Begin PBXSourcesBuildPhase section \\*\\/[\\s\\S]*?\\/\\* End PBXSourcesBuildPhase section \\*\\/";
+//文件索引区域
+static NSString *kRegOfPBXFileReference = @"\\/\\* Begin PBXFileReference section \\*\\/[\\s\\S]*?\\/\\* End PBXFileReference section \\*\\/";
+//类名正则,不包括扩展,分类,不符合规则的不管,因为只做类名的修改,没必要全覆盖
+static NSString *kRegOfClass = @"@interface .* :";
 
 
 @interface ViewController ()<NSTableViewDelegate,NSTableViewDataSource>
@@ -53,23 +59,25 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 /** 打乱编译顺序 */
 @property (nonatomic, strong) MFSwitchView *mixCompileView;
 /** 文件添加前缀同时文件中的类也会添加添加前缀,文件名制作import导入,实际调用是类名相关 */
-@property (nonatomic, strong) MFSwitchView *eidtPrefixView;
-/** 类前缀 */
-@property (nonatomic, copy) NSString *class_prefix;
+@property (nonatomic, strong) MFSwitchView *filePrefixView;
+/** 文件前缀开关 */
+@property (nonatomic, strong) MFSwitchView *classPrefixView;
 
 //测试3
 @property (nonatomic, strong) NSButton *startMixBtn;
 @property (nonatomic, strong) NSTableView *tableview;
 @property (nonatomic, strong) dispatch_queue_t queue;
 @property (nonatomic, strong) dispatch_semaphore_t semaphore;
-/** 修改的类名 */
-@property (nonatomic, strong) NSMutableDictionary *mixedClasses;
+/** 修改的类名@{@"origin_classname":@"current_classname"} */
+@property (nonatomic, strong) NSMutableDictionary<NSString *,NSString *> *mixedClasses;
 /** 修改的方法名 */
 @property (nonatomic, strong) NSMutableDictionary *mixedMethods;
 /** 前缀 */
-@property (nonatomic, copy) NSString *gl_prefix;
+@property (nonatomic, copy) NSString *glFile_prefix;
+/** 类前缀 */
+@property (nonatomic, copy) NSString *glClass_prefix;
 /** 所有的.h、.m、.c,目前只考虑 */
-@property (nonatomic, strong) NSMutableArray *projectAllImpFiles;
+@property (nonatomic, strong) NSMutableArray *projectAllFiles;
 @property (nonatomic, strong) NSArray *filterDirs;
 @end
 
@@ -100,8 +108,12 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     if ([propath isEqualToString:_projectUrl]) {
         return;
     }
-    [self.projectAllImpFiles removeAllObjects];
     _projectUrl = propath;
+    [self refreshProjectAllFiles];
+}
+
+- (void)refreshProjectAllFiles {
+    [self.projectAllFiles removeAllObjects];
     NSError *error = nil;
     //递归获取所有的文件夹及文件
     NSArray *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:_projectUrl error:&error];
@@ -136,13 +148,13 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
                 if ([name hasSuffix:@".m"] ||
                     [name hasSuffix:@".h"] ||
                     [name hasSuffix:@".c"]) {
-                    [self.projectAllImpFiles addObject:[subpath stringByAppendingPathComponent:name]];
+                    [self.projectAllFiles addObject:[subpath stringByAppendingPathComponent:name]];
                 }
             }
         } else if([subpath hasSuffix:@".m"] ||
                   [subpath hasSuffix:@".h"] ||
                   [subpath hasSuffix:@".c"]){
-            [self.projectAllImpFiles addObject:subpath];
+            [self.projectAllFiles addObject:subpath];
         }
     }
 }
@@ -193,36 +205,153 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 
 - (void)startMix {
     [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    //修改类名
+    [self modifyClassPrefix];
     
-    //Compile Sources、文件名修改等涉及.pbxproj修改的优先执行
-    [self handleXcodeprojFile];
-    
+    //.h、.m文件内容顺序打乱
     [self modifyFileContent];
+    
+    //Compile Sources、文件名修改等涉及.pbxproj修改的最后执行,因为会涉及到路径修改
+    [self handleXcodeprojFile];
     
     NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
     [MBProgressHUD hideHUDForView:self.view animated:YES];
     [self showTip:@"完成✅"];
 }
 
-//处理头文件、实现文件
-- (void)handleHeaderAndImpFile:(NSString *)fileIntactPath {
-    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
-    dispatch_async(self.queue, ^{
-        NSString *desFilePah = fileIntactPath;
-        //读取
-        //文件内容
-        NSString *fileContext = [NSString stringWithContentsOfFile:desFilePah encoding:NSUTF8StringEncoding error:nil];
-        fileContext = [self matchContentAndMix:fileContext mFile:[desFilePah hasSuffix:@".m"]];
-        
+- (void)modifyClassPrefix {
+    if (self.classPrefixView.state == NSControlStateValueOn && self.glClass_prefix.length > 0) {
+        NSMutableArray *classNames = [NSMutableArray array];
+        for (NSString *fileUrl in self.urls) {
+            NSString *path = [fileUrl copy];
+            if ([path containsString:@"file://"]) {
+                path = [path stringByReplacingOccurrencesOfString:@"file://" withString:@""];
+            }
+            NSMutableArray *filepaths = [NSMutableArray array];
+            BOOL isDir;
+            [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDir];
+            //判断是否是文件夹
+            if (isDir) {
+                NSError *error = nil;
+                //递归获取所有的文件夹及文件
+                NSArray *filenames = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:path error:&error];
+                if (error) {
+                    NSLog(@"\nMix Error:\n%@\n",error.description);
+                    continue;
+                }
+                for (NSString *filename in filenames) {
+                    [filepaths addObject:[path stringByAppendingPathComponent:filename]];
+                }
+            } else {
+                [filepaths addObject:path];
+            }
+            for (NSString *fileIntactPath in filepaths) {
+                if ([fileIntactPath hasSuffix:@".h"] ||
+                    [fileIntactPath hasSuffix:@".m"]) {
+                    [self scanFileClassPrefix:fileIntactPath classNames:classNames];
+                }
+            }
+        }
+        //修改
+        [self finalModifClassPrefix:classNames];
+        NSLog(@"\nClassPrefix=%@\nClassNames=\n%@\n",self.classPrefixView,classNames);
+    }
+}
+
+- (void)scanFileClassPrefix:(NSString *)fileIntactPath classNames:(NSMutableArray *)classNames {
+    NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
+    NSArray<NSTextCheckingResult*> *classMatchs = [fileContext matchesWithRegex:kRegOfClass];
+    for (NSTextCheckingResult *match in classMatchs) {
+        //@"@interface .* :"
+        NSString *interfaceHeader = [fileContext substringWithRange:match.range];
+        interfaceHeader = [interfaceHeader stringByReplacingOccurrencesOfString:@"@interface " withString:@""];
+        interfaceHeader = [interfaceHeader stringByReplacingOccurrencesOfString:@" :" withString:@""];
+        if (![classNames containsObject:interfaceHeader]) {
+            [classNames addObject:interfaceHeader];
+        }
+    }
+}
+
+- (void)finalModifClassPrefix:(NSArray *)classNames {
+    for (NSString *filepath in self.projectAllFiles) {
+        NSMutableString *fileContext = [NSMutableString stringWithContentsOfFile:filepath encoding:NSUTF8StringEncoding error:nil];
+        for (NSString *classname in classNames) {
+            BOOL next = YES;
+            NSMutableArray *unableRanges = [NSMutableArray array];
+            while (next) {
+                [unableRanges removeAllObjects];
+                //类名使用中存在的几种形式
+                NSArray<NSTextCheckingResult*> *classcontentMatchs = [fileContext matchesWithRegex:classname];
+                if (classcontentMatchs.count == 0) {
+                    break;
+                }
+                for (NSTextCheckingResult *classcontentMatch in classcontentMatchs) {
+                    //是否跳过本次匹配
+                    BOOL flag = NO;
+                    for (NSValue *rangeValue in unableRanges) {
+                        if (rangeValue.rangeValue.location == classcontentMatch.range.location && rangeValue.rangeValue.length == classcontentMatch.range.length) {
+                            flag = YES;
+                            break;
+                        }
+                    }
+                    if (flag) {
+                        continue;
+                    }
+                    
+                    //去除前面跟着字符,后面跟着字符或者.h的子串,即子串、import
+                    NSString *classcontent = [fileContext substringWithRange:classcontentMatch.range];
+                    NSString *beforeFirstStr = [fileContext substringWithRange:NSMakeRange(classcontentMatch.range.location - 1, 1)];
+                    NSString *afterFirstStr = @"";
+                    if (classcontentMatch.range.location + classcontentMatch.range.length < fileContext.length -2) {
+                        afterFirstStr = [fileContext substringWithRange:NSMakeRange(classcontentMatch.range.location + classcontentMatch.range.length , 2)];
+                    }
+                    
+                    if ([beforeFirstStr matchWithRegex:@"[a-zA-Z]"]) {
+                        [unableRanges addObject:[NSValue valueWithRange:classcontentMatch.range]];
+                        continue;
+                    } else if ([afterFirstStr matchWithRegex:@"([a-zA-Z])|(\\.h)"]) {
+                        [unableRanges addObject:[NSValue valueWithRange:classcontentMatch.range]];
+                        continue;
+                    } else {
+                        [fileContext replaceOccurrencesOfString:classcontent withString:[NSString stringWithFormat:@"%@%@",self.glClass_prefix,classname] options:NSLiteralSearch range:classcontentMatch.range];
+                        break;
+                    }
+                }
+                next = unableRanges.count < classcontentMatchs.count;
+            }
+        }
         //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
         //否则writeHandle获取为空
-        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:desFilePah];
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:filepath];
         //将文件字节截短至0,相当于将文件清空,可供文件填写
         [writeHandle truncateFileAtOffset:0];
         NSError *error = nil;
         [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
         if (error) {
-            NSLog(@"FilePath=%@\nError=%@",desFilePah,error);
+            NSLog(@"FilePath=%@\nError=%@",filepath,error);
+        }
+        [writeHandle closeFile];
+    }
+}
+
+//处理头文件、实现文件
+- (void)handleHeaderAndImpFile:(NSString *)fileIntactPath {
+    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_async(self.queue, ^{
+        //读取
+        //文件内容
+        NSString *fileContext = [NSString stringWithContentsOfFile:fileIntactPath encoding:NSUTF8StringEncoding error:nil];
+        fileContext = [self matchContentAndMix:fileContext mFile:[fileIntactPath hasSuffix:@".m"]];
+        
+        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+        //否则writeHandle获取为空
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:fileIntactPath];
+        //将文件字节截短至0,相当于将文件清空,可供文件填写
+        [writeHandle truncateFileAtOffset:0];
+        NSError *error = nil;
+        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+        if (error) {
+            NSLog(@"FilePath=%@\nError=%@",fileIntactPath,error);
         }
         [writeHandle closeFile];
         dispatch_semaphore_signal(self.semaphore);
@@ -230,8 +359,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 }
 
 - (NSString *)modifyFileNames:(NSString *)fileContext {
-    NSString *regOfPBXFileReference = @"\\/\\* Begin PBXFileReference section \\*\\/[\\s\\S]*?\\/\\* End PBXFileReference section \\*\\/";
-    NSArray<NSTextCheckingResult*> *fileReferenceMatch = [fileContext matchesWithRegex:regOfPBXFileReference];
+    NSArray<NSTextCheckingResult*> *fileReferenceMatch = [fileContext matchesWithRegex:kRegOfPBXFileReference];
     NSString *fileReferenceSection = [fileContext substringWithRange:fileReferenceMatch.firstObject.range];
     NSMutableString *tmpFileReference = [NSMutableString stringWithString:fileReferenceSection];
     //防止一遍遍历一遍修改
@@ -276,7 +404,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     NSString *filename = [path lastPathComponent];
     NSString *prepath = [path stringByReplacingOccurrencesOfString:filename withString:@""];
     //新的文件名
-    NSString *newFileName = [NSString stringWithFormat:@"%@%@",self.gl_prefix,filename];
+    NSString *newFileName = [NSString stringWithFormat:@"%@%@",self.glFile_prefix,filename];
     NSString *topath = [prepath stringByAppendingString:newFileName];
     NSError *error = nil;
     [fileManager moveItemAtPath:path toPath:topath error:&error];
@@ -302,13 +430,15 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             [self.tableview reloadDataForRowIndexes:[NSIndexSet indexSetWithIndex:index] columnIndexes:[NSIndexSet indexSetWithIndex:0]];
         });
     }
+    //只要修改了文件,就刷新一下文件合集
+    [self refreshProjectAllFiles];
     //替换配置中的文件名
     [projFileContext replaceOccurrencesOfString:filename withString:newFileName options:NSLiteralSearch range:NSMakeRange(0, projFileContext.length)];
     
     
     //对于.h文件,需要修改所有实现文件中对该文件有import的
     if (hFile) {
-        for (NSString *impFile in self.projectAllImpFiles) {
+        for (NSString *impFile in self.projectAllFiles) {
             //文件内容
             NSString *fileContext = [NSString stringWithContentsOfFile:impFile encoding:NSUTF8StringEncoding error:nil];
             fileContext = [fileContext stringByReplacingOccurrencesOfString:filename withString:newFileName];
@@ -372,7 +502,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     //是否需要修改xcodeproj,避免对xcodeproj没必要的读写操作
     BOOL action = NO;
     if (self.mixCompileView.state == NSControlStateValueOn ||
-        (self.eidtPrefixView.state == NSControlStateValueOn && self.gl_prefix.length > 0)) {
+        (self.filePrefixView.state == NSControlStateValueOn && self.glFile_prefix.length > 0)) {
         action = YES;
     }
     if (!action) {
@@ -399,7 +529,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
         fileContext = [self mixCompileFiles:fileContext];
     }
     
-    if (self.eidtPrefixView.state == NSControlStateValueOn && self.gl_prefix.length > 0) {
+    if (self.filePrefixView.state == NSControlStateValueOn && self.glFile_prefix.length > 0) {
         //修改文件名称,同时修改pbxproj
         fileContext = [self modifyFileNames:fileContext];
     }
@@ -595,8 +725,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 }
 //打乱编译顺序
 - (NSString *)mixCompileFiles:(NSString *)content {
-    NSString *regOfPBXSourceBuildPhase = @"\\/\\* Begin PBXSourcesBuildPhase section \\*\\/[\\s\\S]*?\\/\\* End PBXSourcesBuildPhase section \\*\\/";
-    NSArray<NSTextCheckingResult*> *sectionMatch = [content matchesWithRegex:regOfPBXSourceBuildPhase];
+    NSArray<NSTextCheckingResult*> *sectionMatch = [content matchesWithRegex:kRegOfPBXSourceBuildPhase];
     NSString *section = [content substringWithRange:sectionMatch.firstObject.range];
     
     NSString *regOfSources = @"\\/\\* Sources \\*\\/ = \\{[\\s\\S]*?\\};";
@@ -677,13 +806,29 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
                 self.rootUrl = urls.firstObject.absoluteString;
             } else {
-                self.eidtPrefixView.state = NSControlStateValueOff;
+                self.filePrefixView.state = NSControlStateValueOff;
                 sender.state = NSControlStateValueOff;
                 [self showTip:@"请选择.xcodeproj"];
             }
         } multipleSelection:NO];
     }
 }
+
+- (void)classPrefixChange:(NSSwitch *)sender {
+    if (sender.state == NSControlStateValueOn && !self.rootUrl) {
+        [self chooseFiles:^(NSArray<NSURL *> *urls) {
+            if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
+                self.rootUrl = urls.firstObject.absoluteString;
+            } else {
+                self.classPrefixView.state = NSControlStateValueOff;
+                sender.state = NSControlStateValueOff;
+                [self showTip:@"请选择.xcodeproj"];
+            }
+        } multipleSelection:NO];
+    }
+}
+
+
 
 - (void)showTip:(NSString *)tip {
     MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.view animated:YES];
@@ -738,42 +883,49 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     [self.mixPropView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.view).offset(20);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
     
     [self.view addSubview:self.mixMethodView];
     [self.mixMethodView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.mixPropView.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
     
     [self.view addSubview:self.mixImportView];
     [self.mixImportView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.mixMethodView.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
     
     [self.view addSubview:self.deleteNoteView];
     [self.deleteNoteView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.mixImportView.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
     
     [self.view addSubview:self.mixCompileView];
     [self.mixCompileView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.deleteNoteView.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
     
-    [self.view addSubview:self.eidtPrefixView];
-    [self.eidtPrefixView mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.filePrefixView];
+    [self.filePrefixView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.mixCompileView.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(120, 25));
+        make.size.mas_equalTo(CGSizeMake(200, 25));
+    }];
+    
+    [self.view addSubview:self.classPrefixView];
+    [self.classPrefixView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(self.filePrefixView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
 }
 
@@ -855,21 +1007,37 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     return _mixCompileView;
 }
 
-- (MFSwitchView *)eidtPrefixView {
-    if (!_eidtPrefixView) {
-        _eidtPrefixView = [MFSwitchView createViewWithTitle:nil placeholder:@"Prefix" editEnable:YES switchDefaultState:NSControlStateValueOff];
+- (MFSwitchView *)filePrefixView {
+    if (!_filePrefixView) {
+        _filePrefixView = [MFSwitchView createViewWithTitle:@"文件名称" placeholder:@"Prefix" editEnable:YES switchDefaultState:NSControlStateValueOff];
         @weakify(self);
-        _eidtPrefixView.switchAction = ^(NSSwitch *sender) {
+        _filePrefixView.switchAction = ^(NSSwitch *sender) {
             @strongify(self);
             [self prefixChnage:sender];
         };
         
-        [[_eidtPrefixView.textField rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
+        [[_filePrefixView.textField rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
             @strongify(self);
-            self.gl_prefix = x;
+            self.glFile_prefix = x;
         }];
     }
-    return _eidtPrefixView;
+    return _filePrefixView;
+}
+
+- (MFSwitchView *)classPrefixView {
+    if (!_classPrefixView) {
+        _classPrefixView = [MFSwitchView createViewWithTitle:@"类名" placeholder:@"Prefix" editEnable:YES switchDefaultState:NSControlStateValueOff];
+        @weakify(self);
+        _classPrefixView.switchAction = ^(NSSwitch *sender) {
+            @strongify(self);
+            [self classPrefixChange:sender];
+        };
+        [[_classPrefixView.textField rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
+            @strongify(self);
+            self.glClass_prefix = x;
+        }];
+    }
+    return _classPrefixView;
 }
 
 - (NSTableView *)tableview {
@@ -890,11 +1058,18 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     return _urls;
 }
 
-- (NSMutableArray *)projectAllImpFiles {
-    if (!_projectAllImpFiles) {
-        _projectAllImpFiles = [NSMutableArray array];
+- (NSMutableArray *)projectAllFiles {
+    if (!_projectAllFiles) {
+        _projectAllFiles = [NSMutableArray array];
     }
-    return _projectAllImpFiles;
+    return _projectAllFiles;
+}
+
+- (NSMutableDictionary<NSString *,NSString *> *)mixedClasses {
+    if (!_mixedClasses) {
+        _mixedClasses = [NSMutableDictionary dictionary];
+    }
+    return _mixedClasses;
 }
 
 - (NSArray *)filterDirs {
