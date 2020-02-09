@@ -13,10 +13,10 @@
 #import <AppKit/NSWorkspace.h>
 #import "MBProgressHUD/MBProgressHUD.h"
 #import <ReactiveObjC/ReactiveObjC.h>
+#import "MFSwitchView.h"
 
 #define kTMPREPLACE1 @"GELEI_MIXFILE_RANDOM_kTEMPLATE1"
 #define kTMPREPLACE2 @"GELEI_MIXFILE_RANDOM__kTEMPLATE2"
-#define kLabelW 60
 
 static NSString *identifier = @"mixfile";
 /** 注释的正则,包括注释前的空格,注释后的空白符 */
@@ -43,27 +43,20 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 /** 重新选择 */
 @property (nonatomic, strong) NSButton *cleanBtn;
 /** 是否混合属性 */
-@property (nonatomic, strong) NSSwitch *mixPropSwitch;
+@property (nonatomic, strong) MFSwitchView *mixPropView;
 /** 是否混合方法 */
-@property (nonatomic, strong) NSSwitch *mixMethodSwitch;
+@property (nonatomic, strong) MFSwitchView *mixMethodView;
 /** 混合import */
-@property (nonatomic, strong) NSSwitch *mixImportSwitch;
+@property (nonatomic, strong) MFSwitchView *mixImportView;
 /** 删除注释 */
-@property (nonatomic, strong) NSSwitch *deleteNoteSwitch;
+@property (nonatomic, strong) MFSwitchView *deleteNoteView;
 /** 打乱编译顺序 */
-@property (nonatomic, strong) NSSwitch *mixCompileSwitch;
+@property (nonatomic, strong) MFSwitchView *mixCompileView;
 /** 文件添加前缀同时文件中的类也会添加添加前缀,文件名制作import导入,实际调用是类名相关 */
-@property (nonatomic, strong) NSSwitch *prefixSwitch;
+@property (nonatomic, strong) MFSwitchView *eidtPrefixView;
 /** 类前缀 */
 @property (nonatomic, copy) NSString *class_prefix;
 
-
-@property (nonatomic, assign) NSControlStateValue mixProp;
-@property (nonatomic, assign) NSControlStateValue mixMethod;
-@property (nonatomic, assign) NSControlStateValue mixImport;
-@property (nonatomic, assign) NSControlStateValue deleteNote;
-@property (nonatomic, assign) NSControlStateValue compileState;
-@property (nonatomic, assign) NSControlStateValue prefixState;
 //测试3
 @property (nonatomic, strong) NSButton *startMixBtn;
 @property (nonatomic, strong) NSTableView *tableview;
@@ -333,10 +326,10 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 
 - (void)modifyFileContent {
     BOOL modifyContent = NO;
-    if (self.mixProp == NSControlStateValueOn ||
-        self.mixMethod == NSControlStateValueOn ||
-        self.mixImport == NSControlStateValueOn ||
-        self.deleteNote == NSControlStateValueOn) {
+    if (self.mixPropView.state == NSControlStateValueOn ||
+        self.mixMethodView.state == NSControlStateValueOn ||
+        self.mixImportView.state == NSControlStateValueOn ||
+        self.deleteNoteView.state == NSControlStateValueOn) {
         modifyContent = YES;
     }
     if (!modifyContent) {
@@ -378,8 +371,8 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 - (void)handleXcodeprojFile {
     //是否需要修改xcodeproj,避免对xcodeproj没必要的读写操作
     BOOL action = NO;
-    if (self.compileState == NSControlStateValueOn ||
-        (self.prefixState == NSControlStateValueOn && self.gl_prefix.length > 0)) {
+    if (self.mixCompileView.state == NSControlStateValueOn ||
+        (self.eidtPrefixView.state == NSControlStateValueOn && self.gl_prefix.length > 0)) {
         action = YES;
     }
     if (!action) {
@@ -401,12 +394,12 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     //文件内容
     NSString *fileContext = [NSString stringWithContentsOfFile:projFilePath encoding:NSUTF8StringEncoding error:nil];
     
-    if (self.compileState == NSControlStateValueOn) {
+    if (self.mixCompileView.state == NSControlStateValueOn) {
         //编译混合,同时修改pbxproj
         fileContext = [self mixCompileFiles:fileContext];
     }
     
-    if (self.prefixState == NSControlStateValueOn && self.gl_prefix.length > 0) {
+    if (self.eidtPrefixView.state == NSControlStateValueOn && self.gl_prefix.length > 0) {
         //修改文件名称,同时修改pbxproj
         fileContext = [self modifyFileNames:fileContext];
     }
@@ -427,11 +420,11 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 //正则匹配出所有的方法、属性
 - (NSString *)matchContentAndMix:(NSString *)content mFile:(BOOL)mFile{
     //删除注释
-    if (self.deleteNote == NSControlStateValueOn) {
+    if (self.deleteNoteView.state == NSControlStateValueOn) {
         content = [self matchNote:content];
     }
     //混淆 Import
-    if (self.mixImport == NSControlStateValueOn) {
+    if (self.mixImportView.state == NSControlStateValueOn) {
         //匹配所有import
         content = [self matchImports:content];
     }
@@ -536,7 +529,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             
             
             //打乱属性
-            while (self.mixProp == NSControlStateValueOn && props.count > 1) {
+            while (self.mixPropView.state == NSControlStateValueOn && props.count > 1) {
                 uint32_t index = arc4random_uniform((uint32_t)(props.count - 1)) + 1;
                 NSString *firstStr = props[0];
                 NSString *secondStr = props[index];
@@ -550,7 +543,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             }
 
             //打乱方法声明
-            while (self.mixMethod == NSControlStateValueOn && methods.count > 1) {
+            while (self.mixMethodView.state == NSControlStateValueOn && methods.count > 1) {
                 uint32_t index = arc4random_uniform((uint32_t)(methods.count - 1)) + 1;
                 NSString *firstStr = methods[0];
                 NSString *secondStr = methods[index];
@@ -584,7 +577,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
             }
 //            NSLog(@"%@",methodImps);
             //打乱方法实现
-            while (self.mixMethod == NSControlStateValueOn && methodImps.count > 1) {
+            while (self.mixMethodView.state == NSControlStateValueOn && methodImps.count > 1) {
                 uint32_t index = arc4random_uniform((uint32_t)(methodImps.count - 1)) + 1;
                 NSString *firstStr = methodImps[0];
                 NSString *secondStr = methodImps[index];
@@ -664,30 +657,13 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     // Update the view, if already loaded.
 }
 
-- (void)mixPropSwitchChange:(NSSwitch *)sender {
-    self.mixProp = [sender state];
-}
-
-- (void)mixMethodSwitchChange:(NSSwitch *)sender {
-    self.mixMethod = [sender state];
-}
-
-- (void)mixImportSwitchChange:(NSSwitch *)sender {
-    self.mixImport = [sender state];
-}
-
-- (void)deleteNoteChange:(NSSwitch *)sender {
-    self.deleteNote = [sender state];
-}
-
 - (void)mixCompileChange:(NSSwitch *)sender {
-    self.compileState = [sender state];
-    if (self.compileState == NSControlStateValueOn && !self.rootUrl) {
+    if (sender.state == NSControlStateValueOn && !self.rootUrl) {
         [self chooseFiles:^(NSArray<NSURL *> *urls) {
             if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
                 self.rootUrl = urls.firstObject.absoluteString;
             } else {
-                self.compileState = NSControlStateValueOff;
+                self.mixCompileView.state = NSControlStateValueOff;
                 sender.state = NSControlStateValueOff;
                 [self showTip:@"请选择.xcodeproj"];
             }
@@ -696,13 +672,12 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 }
 
 - (void)prefixChnage:(NSSwitch *)sender {
-    self.prefixState = [sender state];
-    if (self.prefixState == NSControlStateValueOn && !self.rootUrl) {
+    if (sender.state == NSControlStateValueOn && !self.rootUrl) {
         [self chooseFiles:^(NSArray<NSURL *> *urls) {
             if ([urls.firstObject.absoluteString hasSuffix:@"xcodeproj"]) {
                 self.rootUrl = urls.firstObject.absoluteString;
             } else {
-                self.prefixState = NSControlStateValueOff;
+                self.eidtPrefixView.state = NSControlStateValueOff;
                 sender.state = NSControlStateValueOff;
                 [self showTip:@"请选择.xcodeproj"];
             }
@@ -759,113 +734,47 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
         make.bottom.equalTo(self.view).offset(-20);
     }];
     
-    NSTextField *text1 = [[NSTextField alloc] init];
-    text1.stringValue = @"属性";
-    text1.enabled = NO;
-    text1.textColor = NSColor.whiteColor;
-    [self.view addSubview:text1];
-    [text1 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.mixPropView];
+    [self.mixPropView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
         make.top.equalTo(self.view).offset(20);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
     
-    [self.view addSubview:self.mixPropSwitch];
-    [self.mixPropSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text1.mas_right).offset(20);
-        make.centerY.equalTo(text1);
-    }];
-    
-    NSTextField *text2 = [[NSTextField alloc] init];
-    text2.stringValue = @"方法";
-    text2.enabled = NO;
-    text2.textColor = NSColor.whiteColor;
-    [self.view addSubview:text2];
-    [text2 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.mixMethodView];
+    [self.mixMethodView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text1.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.top.equalTo(self.mixPropView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
     
-    [self.view addSubview:self.mixMethodSwitch];
-    [self.mixMethodSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text2.mas_right).offset(20);
-        make.centerY.equalTo(text2);
-    }];
-    
-    NSTextField *text3 = [[NSTextField alloc] init];
-    text3.stringValue = @"Import";
-    text3.enabled = NO;
-    text3.textColor = NSColor.whiteColor;
-    [self.view addSubview:text3];
-    [text3 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.mixImportView];
+    [self.mixImportView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text2.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.top.equalTo(self.mixMethodView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
     
-    [self.view addSubview:self.mixImportSwitch];
-    [self.mixImportSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text3.mas_right).offset(20);
-        make.centerY.equalTo(text3);
-    }];
-    
-    NSTextField *text4 = [[NSTextField alloc] init];
-    text4.stringValue = @"删除注释";
-    text4.enabled = NO;
-    text4.textColor = NSColor.whiteColor;
-    [self.view addSubview:text4];
-    [text4 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.deleteNoteView];
+    [self.deleteNoteView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text3.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.top.equalTo(self.mixImportView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
     
-    [self.view addSubview:self.deleteNoteSwitch];
-    [self.deleteNoteSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text4.mas_right).offset(20);
-        make.centerY.equalTo(text4);
-    }];
-    
-    NSTextField *text5 = [[NSTextField alloc] init];
-    text5.stringValue = @"Sources";
-    text5.enabled = NO;
-    text5.textColor = NSColor.whiteColor;
-    [self.view addSubview:text5];
-    [text5 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.mixCompileView];
+    [self.mixCompileView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text4.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.top.equalTo(self.deleteNoteView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
     
-    [self.view addSubview:self.mixCompileSwitch];
-    [self.mixCompileSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text5.mas_right).offset(20);
-        make.centerY.equalTo(text5);
-    }];
-    
-    NSTextField *text6 = [[NSTextField alloc] init];
-    text6.placeholderString = @"前缀";
-    text6.enabled = YES;
-    text6.textColor = NSColor.whiteColor;
-    [self.view addSubview:text6];
-    [text6 mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.view addSubview:self.eidtPrefixView];
+    [self.eidtPrefixView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(tableContainerView.mas_right).offset(20);
-        make.top.equalTo(text5.mas_bottom).offset(30);
-        make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+        make.top.equalTo(self.mixCompileView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(120, 25));
     }];
-    @weakify(self);
-    [[text6 rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
-        @strongify(self);
-        self.gl_prefix = x;
-    }];
-    
-    [self.view addSubview:self.prefixSwitch];
-    [self.prefixSwitch mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(text6.mas_right).offset(20);
-        make.centerY.equalTo(text6);
-    }];
-    
 }
 
 - (NSButton *)addBtn {
@@ -906,56 +815,61 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
     return _startMixBtn;
 }
 
-- (NSSwitch *)mixPropSwitch {
-    if (!_mixPropSwitch) {
-        _mixPropSwitch = [[NSSwitch alloc] init];
-        _mixPropSwitch.state = NSControlStateValueOn;
-        self.mixProp = NSControlStateValueOn;
-        [_mixPropSwitch setAction:@selector(mixPropSwitchChange:)];
+- (MFSwitchView *)mixPropView {
+    if (!_mixPropView) {
+        _mixPropView = [MFSwitchView createViewWithTitle:@"属性" placeholder:nil editEnable:NO switchDefaultState:NSControlStateValueOff];
     }
-    return _mixPropSwitch;
+    return _mixPropView;
 }
 
-- (NSSwitch *)mixMethodSwitch {
-    if (!_mixMethodSwitch) {
-        _mixMethodSwitch = [[NSSwitch alloc] init];
-        [_mixMethodSwitch setAction:@selector(mixMethodSwitchChange:)];
+- (MFSwitchView *)mixMethodView {
+    if (!_mixMethodView) {
+        _mixMethodView = [MFSwitchView createViewWithTitle:@"方法" placeholder:nil editEnable:NO switchDefaultState:NSControlStateValueOff];
     }
-    return _mixMethodSwitch;
+    return _mixMethodView;
 }
 
-- (NSSwitch *)mixImportSwitch {
-    if (!_mixImportSwitch) {
-        _mixImportSwitch = [[NSSwitch alloc] init];
-        _mixImportSwitch.state = NSControlStateValueOn;
-        self.mixImport = NSControlStateValueOn;
-        [_mixImportSwitch setAction:@selector(mixImportSwitchChange:)];
+- (MFSwitchView *)mixImportView {
+    if (!_mixImportView) {
+        _mixImportView = [MFSwitchView createViewWithTitle:@"Import" placeholder:nil editEnable:NO switchDefaultState:NSControlStateValueOff];
     }
-    return _mixImportSwitch;
+    return _mixImportView;
 }
 
-- (NSSwitch *)deleteNoteSwitch {
-    if (!_deleteNoteSwitch) {
-        _deleteNoteSwitch = [[NSSwitch alloc] init];
-        [_deleteNoteSwitch setAction:@selector(deleteNoteChange:)];
+- (MFSwitchView *)deleteNoteView {
+    if (!_deleteNoteView) {
+        _deleteNoteView = [MFSwitchView createViewWithTitle:@"删除注释" placeholder:nil editEnable:NO switchDefaultState:NSControlStateValueOff];
     }
-    return _deleteNoteSwitch;
+    return _deleteNoteView;
 }
 
-- (NSSwitch *)mixCompileSwitch {
-    if (!_mixCompileSwitch) {
-        _mixCompileSwitch = [[NSSwitch alloc] init];
-        [_mixCompileSwitch setAction:@selector(mixCompileChange:)];
+- (MFSwitchView *)mixCompileView {
+    if (!_mixCompileView) {
+        _mixCompileView = [MFSwitchView createViewWithTitle:@"Sources" placeholder:nil editEnable:NO switchDefaultState:NSControlStateValueOff];
+        @weakify(self);
+        _mixCompileView.switchAction = ^(NSSwitch *sender) {
+            @strongify(self);
+            [self mixCompileChange:sender];
+        };
     }
-    return _mixCompileSwitch;
+    return _mixCompileView;
 }
 
-- (NSSwitch *)prefixSwitch {
-    if (!_prefixSwitch) {
-        _prefixSwitch = [[NSSwitch alloc] init];
-        [_prefixSwitch setAction:@selector(prefixChnage:)];
+- (MFSwitchView *)eidtPrefixView {
+    if (!_eidtPrefixView) {
+        _eidtPrefixView = [MFSwitchView createViewWithTitle:nil placeholder:@"Prefix" editEnable:YES switchDefaultState:NSControlStateValueOff];
+        @weakify(self);
+        _eidtPrefixView.switchAction = ^(NSSwitch *sender) {
+            @strongify(self);
+            [self prefixChnage:sender];
+        };
+        
+        [[_eidtPrefixView.textField rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
+            @strongify(self);
+            self.gl_prefix = x;
+        }];
     }
-    return _prefixSwitch;
+    return _eidtPrefixView;
 }
 
 - (NSTableView *)tableview {
