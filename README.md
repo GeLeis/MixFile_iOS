@@ -8,8 +8,14 @@
 5.注释代码删除
 6.Compile Sources打乱,需要选中打乱的'.xcodeproj'文件
 7.文件名修改,同时会修改项目目录下的import引用名称
+8.修改类名
 ```
-## 说明:代码打乱时,如果没有设置删除注释,则注释会和声明的属性或者方法绑定在一起
+## 说明
+```
+1.代码打乱时,如果没有设置删除注释,则注释会和声明的属性或者方法绑定在一起
+2.修改文件名,如果修改了ViewController,并且在storyboard中有使用,需要手动去storyboard中修改
+3.有使用不当的地方,敬请提出!!!
+```
 
 ## 界面
 ![MixFile_UI.jpg](https://github.com/GeLeis/MixFile_iOS/blob/master/mix_file.jpg)
