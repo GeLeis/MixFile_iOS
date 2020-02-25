@@ -37,7 +37,7 @@
         [self addSubview:_titleField];
         [_titleField mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.offset(0);
-            make.centerY.equalTo(self);
+            make.top.equalTo(self);
             make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
         }];
         
@@ -52,12 +52,12 @@
         
         _textField = [[NSTextField alloc] init];
         _textField.textColor = NSColor.whiteColor;
+        _textField.maximumNumberOfLines = 0;
         _textField.stringValue = @"";
         [self addSubview:_textField];
         [_textField mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.switchBtn.mas_right).offset(20);
-            make.centerY.equalTo(self);
-            make.size.mas_equalTo(CGSizeMake(kLabelW, 20));
+            make.top.bottom.right.equalTo(self);
         }];
         _textField.action = @selector(textFieldAction:);
         _textField.target = self;

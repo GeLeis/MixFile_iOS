@@ -23,6 +23,8 @@ static NSString *identifier = @"mixfile";
 static NSString *kRegOfNote = @"[\\t ]*((?<!:)\\/\\/.*|\\/\\*(\\s|.)*?\\*\\/)\\s?";
 //实现方法匹配规则,要求方法最后一个括号顶在最前面
 static NSString *kRegOfImpMethod = @"[\\-\\+]\\s?\\([\\s\\S]*?\\{[\\s\\S]*?\\n\\}";
+//匹配实现方法的第一行
+static NSString *kRegOfImpMethodFirstRow = @"\\n[\\-\\+]\\s?\\(((?!(\\[|\\]|;))[\\s\\S])*?\\{";
 //声明方法匹配规则
 static NSString *kRegOfmethod = @"[\\-\\+]\\s?\\([\\s\\S]*?;";
 //属性匹配规则
@@ -33,7 +35,7 @@ static NSString *kRegOfCompileFile = @"[\\t ]*.* \\/\\* .*\\.(m|c) in Sources \\
 static NSString *kRegOfPBXSourceBuildPhase = @"\\/\\* Begin PBXSourcesBuildPhase section \\*\\/[\\s\\S]*?\\/\\* End PBXSourcesBuildPhase section \\*\\/";
 //文件索引区域
 static NSString *kRegOfPBXFileReference = @"\\/\\* Begin PBXFileReference section \\*\\/[\\s\\S]*?\\/\\* End PBXFileReference section \\*\\/";
-//类名正则,不包括扩展,分类,不符合规则的不管,因为只做类名的修改,没必要全覆盖
+//类名正则,也只需要匹配类名,不包括扩展,分类,这些与类名是强相关的,只需要知道有哪些类名更改了,不符合规则的不管,因为只做类名的修改,没必要全覆盖
 static NSString *kRegOfClass = @"@interface .* :";
 
 
@@ -62,6 +64,8 @@ static NSString *kRegOfClass = @"@interface .* :";
 @property (nonatomic, strong) MFSwitchView *filePrefixView;
 /** 文件前缀开关 */
 @property (nonatomic, strong) MFSwitchView *classPrefixView;
+/** 实现方法代码插入 */
+@property (nonatomic, strong) MFSwitchView *insertCodeView;
 
 //测试3
 @property (nonatomic, strong) NSButton *startMixBtn;
@@ -76,9 +80,15 @@ static NSString *kRegOfClass = @"@interface .* :";
 @property (nonatomic, copy) NSString *glFile_prefix;
 /** 类前缀 */
 @property (nonatomic, copy) NSString *glClass_prefix;
+@property (nonatomic, copy) NSString *insertCode;
 /** 所有的.h、.m、.c,目前只考虑 */
 @property (nonatomic, strong) NSMutableArray *projectAllFiles;
+/** 文件扫描过程中过滤的文件、文件夹 */
 @property (nonatomic, strong) NSArray *filterDirs;
+/** 执行方法插入的过程中过滤的方法 */
+@property (nonatomic, strong) NSArray *filterImps;
+/** 代码插入过程中需要过滤的文件夹 */
+@property (nonatomic, strong) NSArray *inserFilterDirs;
 @end
 
 @implementation ViewController
@@ -205,6 +215,8 @@ static NSString *kRegOfClass = @"@interface .* :";
 
 - (void)startMix {
     [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    //实现方法代码插入
+    [self insertCodeInMFile];
     //修改类名
     [self modifyClassPrefix];
     
@@ -217,6 +229,125 @@ static NSString *kRegOfClass = @"@interface .* :";
     NSLog(@"\n\n********\nFinish\n************\nFinish\n*********\n\n");
     [MBProgressHUD hideHUDForView:self.view animated:YES];
     [self showTip:@"完成✅"];
+}
+
+- (void)insertCodeInMFile {
+    if (self.insertCodeView.state == NSControlStateValueOn && self.insertCode.length > 0) {
+        for (NSString *fileUrl in self.urls) {
+            NSString *path = [fileUrl copy];
+            if ([path containsString:@"file://"]) {
+                path = [path stringByReplacingOccurrencesOfString:@"file://" withString:@""];
+            }
+            NSMutableArray *filepaths = [NSMutableArray array];
+            BOOL isDir;
+            [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDir];
+            //判断是否是文件夹
+            if (isDir) {
+                NSError *error = nil;
+                //递归获取所有的文件夹及文件
+                NSArray *filenames = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:path error:&error];
+                if (error) {
+                    NSLog(@"\nMix Error:\n%@\n",error.description);
+                    continue;
+                }
+                for (NSString *filename in filenames) {
+                    [filepaths addObject:[path stringByAppendingPathComponent:filename]];
+                }
+            } else {
+                [filepaths addObject:path];
+            }
+            for (NSString *fileIntactPath in filepaths) {
+                if ([fileIntactPath hasSuffix:@".m"]) {
+                    [self inserCodeHandle:fileIntactPath];
+                }
+            }
+        }
+    }
+}
+
+- (void)inserCodeHandle:(NSString *)fileIntactPath {
+    dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_async(self.queue, ^{
+        NSString *filepath = [fileIntactPath copy];
+        //读取
+        //文件内容
+        NSString *fileContext = [NSString stringWithContentsOfFile:filepath encoding:NSUTF8StringEncoding error:nil];
+        //获取所有实现的方法
+        NSMutableArray *methodImps = [NSMutableArray array];
+        //方法的实现
+        NSArray<NSTextCheckingResult*> *methodImpMathchs = [fileContext matchesWithRegex:kRegOfImpMethod];
+        //方法的实现第一行
+        NSArray<NSTextCheckingResult*> *methodImpFristRowmatchs = [fileContext matchesWithRegex:kRegOfImpMethodFirstRow];
+        
+        if (methodImpMathchs.count != methodImpFristRowmatchs.count) {
+            NSMutableArray *mathcImps = [NSMutableArray array];
+            for (NSTextCheckingResult *checkingresult in methodImpMathchs) {
+                [mathcImps addObject:[fileContext substringWithRange:checkingresult.range]];
+            }
+            NSLog(@"====");
+            NSMutableArray *mathcImpFirstRows = [NSMutableArray array];
+            for (NSTextCheckingResult *checkingresult in methodImpFristRowmatchs) {
+                [mathcImpFirstRows addObject:[fileContext substringWithRange:checkingresult.range]];
+            }
+            for (int i= 0 ;i < mathcImps.count;i++) {
+                if (![mathcImps[i] containsString:mathcImpFirstRows[i]]) {
+                    NSLog(@"%d",i);
+                }
+            }
+            NSLog(@"==%@=======\n%@",mathcImps,mathcImpFirstRows);
+        }
+        if (methodImpMathchs.count != methodImpFristRowmatchs.count) {
+            return ;
+        }
+        for (int i = 0 ; i< methodImpFristRowmatchs.count; i++) {
+            NSTextCheckingResult *methodImpFirstRowmatch = methodImpFristRowmatchs[i];
+            NSString *methodFirstRow = [fileContext substringWithRange:methodImpFirstRowmatch.range];
+            BOOL add = YES;
+            //过滤掉懒加载的方法
+            if ([methodFirstRow containsString:@"*)"]) {
+                NSRange range1 = [methodFirstRow rangeOfString:@"*)"];
+                NSRange range2 = [methodFirstRow rangeOfString:@"{"];
+                NSString *sel = [methodFirstRow substringWithRange:NSMakeRange(range1.location + range1.length, range2.location - range1.location - range1.length)];
+                sel = [sel stringByReplacingOccurrencesOfString:@" " withString:@""];
+                NSString *mehtodImpconten = [fileContext substringWithRange:methodImpMathchs[i].range];
+                if ([mehtodImpconten containsString:[NSString stringWithFormat:@"if (!_%@) {",sel]] ||
+                    [mehtodImpconten containsString:[NSString stringWithFormat:@"if(!_%@) {",sel]] ||
+                    [mehtodImpconten containsString:[NSString stringWithFormat:@"if (!_%@){",sel]] ||
+                    [mehtodImpconten containsString:[NSString stringWithFormat:@"if(!_%@){",sel]]
+                    ) {
+                    add = NO;
+                }
+            }
+            if (add) {
+                for (NSString *filterImp in self.filterImps) {
+                    if ([methodFirstRow containsString:filterImp]) {
+                        add = NO;
+                        break;
+                    }
+                }
+            }
+            if (add) {
+                [methodImps addObject:[fileContext substringWithRange:methodImpFirstRowmatch.range]];
+            }
+        }
+        
+        for (NSString *methodFirstRow in methodImps) {
+            fileContext = [fileContext stringByReplacingOccurrencesOfString:methodFirstRow withString:[NSString stringWithFormat:@"%@\n\t%@",methodFirstRow,self.insertCode]];
+        }
+        
+        //修改:需要设置MixFiles->Targets->MixFiles->Capabilities->AppSandbox->FileAccess->User Selected File 为Read/Write
+        //否则writeHandle获取为空
+        NSFileHandle *writeHandle = [NSFileHandle fileHandleForWritingAtPath:filepath];
+        //将文件字节截短至0,相当于将文件清空,可供文件填写
+        [writeHandle truncateFileAtOffset:0];
+        NSError *error = nil;
+        [writeHandle writeData:[fileContext dataUsingEncoding:NSUTF8StringEncoding] error:&error];
+        if (error) {
+            NSLog(@"FilePath=%@\nError=%@",filepath,error);
+        }
+        [writeHandle closeFile];
+        dispatch_semaphore_signal(self.semaphore);
+    });
 }
 
 - (void)modifyClassPrefix {
@@ -254,6 +385,7 @@ static NSString *kRegOfClass = @"@interface .* :";
         }
         //修改
         [self finalModifClassPrefix:classNames];
+        //根据需要去统计修改过的ClassNames
         NSLog(@"\nClassPrefix=%@\nClassNames=\n%@\n",self.classPrefixView,classNames);
     }
 }
@@ -298,7 +430,8 @@ static NSString *kRegOfClass = @"@interface .* :";
                         continue;
                     }
                     
-                    //去除前面跟着字符,后面跟着字符或者.h的子串,即子串、import
+                    //跳过包含Classname,但是不符合替换规则的子串
+                    //即:前面跟着字符,后面跟着字符或者.h的子串,即子串、import
                     NSString *classcontent = [fileContext substringWithRange:classcontentMatch.range];
                     NSString *beforeFirstStr = [fileContext substringWithRange:NSMakeRange(classcontentMatch.range.location - 1, 1)];
                     NSString *afterFirstStr = @"";
@@ -927,6 +1060,13 @@ static NSString *kRegOfClass = @"@interface .* :";
         make.top.equalTo(self.filePrefixView.mas_bottom).offset(30);
         make.size.mas_equalTo(CGSizeMake(200, 25));
     }];
+    
+    [self.view addSubview:self.insertCodeView];
+    [self.insertCodeView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(tableContainerView.mas_right).offset(20);
+        make.top.equalTo(self.classPrefixView.mas_bottom).offset(30);
+        make.size.mas_equalTo(CGSizeMake(400, 80));
+    }];
 }
 
 - (NSButton *)addBtn {
@@ -1040,6 +1180,18 @@ static NSString *kRegOfClass = @"@interface .* :";
     return _classPrefixView;
 }
 
+- (MFSwitchView *)insertCodeView {
+    if (!_insertCodeView) {
+        _insertCodeView = [MFSwitchView createViewWithTitle:@"插入代码" placeholder:@"code" editEnable:YES switchDefaultState:NSControlStateValueOff];
+        @weakify(self);
+        [[_insertCodeView.textField rac_textSignal] subscribeNext:^(NSString * _Nullable x) {
+            @strongify(self);
+            self.insertCode = x;
+        }];
+    }
+    return _insertCodeView;
+}
+
 - (NSTableView *)tableview {
     if (!_tableview) {
         _tableview = [[NSTableView alloc] initWithFrame:NSZeroRect];
@@ -1073,18 +1225,78 @@ static NSString *kRegOfClass = @"@interface .* :";
 }
 
 - (NSArray *)filterDirs {
-    return @[
-        @".DS_Store",
-        @".xcworkspace",
-        @"README.md",
-        @"Pods",
-        @".gitignore",
-        @"Podfile",
-        @".git",
-        @".xcodeproj",
-        @"Podfile.lock",
-        @".idea"
-    ];
+    if (!_filterDirs) {
+        _filterDirs = @[
+            @".DS_Store",
+            @".xcworkspace",
+            @"README.md",
+            @"Pods",
+            @".gitignore",
+            @"Podfile",
+            @".git",
+            @".xcodeproj",
+            @"Podfile.lock",
+            @".idea",
+            @"RealnameAuth",
+            @"NSArray-Safe",
+            @"ThirdParty",
+            @""
+        ];
+    }
+    return _filterDirs;
+}
+
+- (NSArray *)filterImps {
+    if (!_filterImps) {
+        _filterImps = @[
+            @"(void)loadView",
+            @"(void)load",
+            @"viewWillAppear:",
+            @"viewWillDisappear",
+            @"viewDidAppear:",
+            @"viewDidDisappear:",
+            @"viewWillLayoutSubviews",
+            @"viewDidLayoutSubviews",
+            @"(void)didReceiveMemoryWarning",
+            @"(void)presentViewController:(UIViewController *)viewControllerToPresent animated: (BOOL)flag completion:",
+            @"(void)dismissViewControllerAnimated: (BOOL)flag completion:",
+            @"(void)presentModalViewController:(UIViewController *)modalViewController animated:(BOOL)animated",
+            @"(void)viewDidLoad",
+            @"didReceiveMemoryWarning",
+            @"(void)dealloc",
+            @"(UIStatusBarStyle)preferredStatusBarStyle",
+            @"(void)customviewWillAppear:",
+            @"(void)customViewDidLoad",
+            @"(instancetype)init",
+            @"initWithFrame:",
+            @")setUp",
+            @"(void)awakeFromNib",
+            @"(void)setSelected:(BOOL)selected animated:(BOOL)animated",
+            @"(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier",
+            @"(void)updateConstraints",
+            @")mj_",//mj开头的重写函数
+            @")tableView:",
+            @")collectionView:",
+            @")scrollViewDidScroll:",
+            @"ignoreQYVc",
+            @")application:",
+            
+        ];
+    }
+    return _filterImps;
+}
+
+- (NSArray *)inserFilterDirs {
+    if (!_inserFilterDirs) {
+        NSMutableArray *arr = [NSMutableArray arrayWithObjects:
+                               @"HKRouterTool",
+                               @"HKLogListViewController",
+                               @"QIYU_iOS_SDK_FIX_v5.4",
+                               nil];
+        [arr addObjectsFromArray:self.filterDirs];
+        _inserFilterDirs = arr;
+    }
+    return _inserFilterDirs;
 }
 
 @end
